@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スマホカメラ表示</title>
+  <style>
+    body { text-align: center; }
+    video { width: 100%; max-width: 480px; height: auto; border: 1px solid #ccc; }
+    button { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>カメラを起動</h1>
+  <video id="video" autoplay playsinline></video><br>
+  <button onclick="startCamera()">カメラ開始</button>
+
+  <script>
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }, // 背面カメラ優先
+          audio: false
+        });
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+      } catch (err) {
+        alert('カメラの起動に失敗しました: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
