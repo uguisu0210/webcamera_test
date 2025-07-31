@@ -32,29 +32,37 @@
 
   <script>
     const video = document.getElementById('video');
-    // No signal overlay
-    const noSignal = document.createElement('div');
-    noSignal.textContent = 'No signal';
-    noSignal.style.position = 'absolute';
-    noSignal.style.top = video.offsetTop + 'px';
-    noSignal.style.left = video.offsetLeft + 'px';
-    noSignal.style.width = video.offsetWidth ? video.offsetWidth + 'px' : '100%';
-    noSignal.style.height = video.offsetHeight ? video.offsetHeight + 'px' : '100%';
-    noSignal.style.display = 'none';
-    noSignal.style.alignItems = 'center';
-    noSignal.style.justifyContent = 'center';
-    noSignal.style.background = 'rgba(0,0,0,0.7)';
-    noSignal.style.color = '#fff';
-    noSignal.style.fontSize = '2em';
-    noSignal.style.zIndex = 10;
-    noSignal.style.pointerEvents = 'none';
-    noSignal.style.textAlign = 'center';
+    video.addEventListener('error', showNoSignal);
 
-    // 親要素をrelativeに
-    video.parentElement.style.position = 'relative';
-    video.parentElement.appendChild(noSignal);
+    function showNoSignal() {
+      if (!document.getElementById('no-signal')) {
+        const msg = document.createElement('div');
+        msg.id = 'no-signal';
+        msg.textContent = 'No signal';
+        msg.style.color = 'red';
+        msg.style.fontSize = '2em';
+        msg.style.marginTop = '20px';
+        msg.style.display = 'flex';
+        msg.style.alignItems = 'center';
+        msg.style.justifyContent = 'center';
+        msg.style.width = video.offsetWidth + 'px';
+        msg.style.height = video.offsetHeight + 'px';
+        msg.style.border = '1px solid #ccc';
+        msg.style.position = 'absolute';
+        msg.style.left = video.getBoundingClientRect().left + window.scrollX + 'px';
+        msg.style.top = video.getBoundingClientRect().top + window.scrollY + 'px';
+        msg.style.background = '#fff';
+        msg.style.zIndex = 10;
+        document.body.appendChild(msg);
+      }
+    }
 
-    // カメラ起動時にNo signalを消す
+    function removeNoSignal() {
+      const noSignal = document.getElementById('no-signal');
+      if (noSignal) noSignal.remove();
+    }
+
+    // 失敗時にもNo signal表示
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -62,17 +70,24 @@
           audio: false
         });
         video.srcObject = stream;
-        noSignal.style.display = 'none';
+        removeNoSignal();
       } catch (err) {
-        noSignal.style.display = 'flex';
-        // alertは不要
+        showNoSignal();
+        alert('カメラの起動に失敗しました: ' + err.message);
       }
     }
 
-    // 初期状態でNo signal表示
-    noSignal.style.display = 'flex';
+    // ウィンドウリサイズ時にNo signal枠も追従
+    window.addEventListener('resize', () => {
+      const noSignal = document.getElementById('no-signal');
+      if (noSignal && video) {
+        noSignal.style.width = video.offsetWidth + 'px';
+        noSignal.style.height = video.offsetHeight + 'px';
+        noSignal.style.left = video.getBoundingClientRect().left + window.scrollX + 'px';
+        noSignal.style.top = video.getBoundingClientRect().top + window.scrollY + 'px';
+      }
+    });
   </script>
-
   
 </body>
 </html>
