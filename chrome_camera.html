@@ -29,5 +29,50 @@
       }
     }
   </script>
+
+  <script>
+    const video = document.getElementById('video');
+    // No signal overlay
+    const noSignal = document.createElement('div');
+    noSignal.textContent = 'No signal';
+    noSignal.style.position = 'absolute';
+    noSignal.style.top = video.offsetTop + 'px';
+    noSignal.style.left = video.offsetLeft + 'px';
+    noSignal.style.width = video.offsetWidth ? video.offsetWidth + 'px' : '100%';
+    noSignal.style.height = video.offsetHeight ? video.offsetHeight + 'px' : '100%';
+    noSignal.style.display = 'none';
+    noSignal.style.alignItems = 'center';
+    noSignal.style.justifyContent = 'center';
+    noSignal.style.background = 'rgba(0,0,0,0.7)';
+    noSignal.style.color = '#fff';
+    noSignal.style.fontSize = '2em';
+    noSignal.style.zIndex = 10;
+    noSignal.style.pointerEvents = 'none';
+    noSignal.style.textAlign = 'center';
+
+    // 親要素をrelativeに
+    video.parentElement.style.position = 'relative';
+    video.parentElement.appendChild(noSignal);
+
+    // カメラ起動時にNo signalを消す
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        video.srcObject = stream;
+        noSignal.style.display = 'none';
+      } catch (err) {
+        noSignal.style.display = 'flex';
+        // alertは不要
+      }
+    }
+
+    // 初期状態でNo signal表示
+    noSignal.style.display = 'flex';
+  </script>
+
+  
 </body>
 </html>
