@@ -30,39 +30,11 @@
     }
   </script>
 
+  <div id="no-signal" style="display:none; color:black; background-color: #ccc; font-size:1.2em; margin-top:10px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; height:100%; display:flex; align-items:center; justify-content:center; z-index:2;">No signal</div>
   <script>
     const video = document.getElementById('video');
-    video.addEventListener('error', showNoSignal);
+    const noSignal = document.getElementById('no-signal');
 
-    function showNoSignal() {
-      if (!document.getElementById('no-signal')) {
-        const msg = document.createElement('div');
-        msg.id = 'no-signal';
-        msg.textContent = 'No signal';
-        msg.style.color = 'red';
-        msg.style.fontSize = '2em';
-        msg.style.marginTop = '20px';
-        msg.style.display = 'flex';
-        msg.style.alignItems = 'center';
-        msg.style.justifyContent = 'center';
-        msg.style.width = video.offsetWidth + 'px';
-        msg.style.height = video.offsetHeight + 'px';
-        msg.style.border = '1px solid #ccc';
-        msg.style.position = 'absolute';
-        msg.style.left = video.getBoundingClientRect().left + window.scrollX + 'px';
-        msg.style.top = video.getBoundingClientRect().top + window.scrollY + 'px';
-        msg.style.background = '#fff';
-        msg.style.zIndex = 10;
-        document.body.appendChild(msg);
-      }
-    }
-
-    function removeNoSignal() {
-      const noSignal = document.getElementById('no-signal');
-      if (noSignal) noSignal.remove();
-    }
-
-    // 失敗時にもNo signal表示
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -70,22 +42,59 @@
           audio: false
         });
         video.srcObject = stream;
-        removeNoSignal();
+        noSignal.style.display = "none";
       } catch (err) {
-        showNoSignal();
-        alert('カメラの起動に失敗しました: ' + err.message);
+        // サイズをvideo要素に合わせる
+        const rect = video.getBoundingClientRect();
+        noSignal.style.width = video.offsetWidth + "px";
+        noSignal.style.height = video.offsetHeight + "px";
+        noSignal.style.left = video.offsetLeft + "px";
+        noSignal.style.top = video.offsetTop + "px";
+        noSignal.style.transform = "none";
+        noSignal.style.display = "flex";
+        video.srcObject = null;
       }
     }
-
-    // ウィンドウリサイズ時にNo signal枠も追従
+    // ページロード時にno-signalの位置をvideoに合わせる
     window.addEventListener('resize', () => {
-      const noSignal = document.getElementById('no-signal');
-      if (noSignal && video) {
-        noSignal.style.width = video.offsetWidth + 'px';
-        noSignal.style.height = video.offsetHeight + 'px';
-        noSignal.style.left = video.getBoundingClientRect().left + window.scrollX + 'px';
-        noSignal.style.top = video.getBoundingClientRect().top + window.scrollY + 'px';
+      if (noSignal.style.display !== "none") {
+        noSignal.style.width = video.offsetWidth + "px";
+        noSignal.style.height = video.offsetHeight + "px";
+        noSignal.style.left = video.offsetLeft + "px";
+        noSignal.style.top = video.offsetTop + "px";
+        noSignal.style.transform = "none";
       }
+    });
+  </script>
+
+  <style>
+    #no-signal {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      max-width: 480px;
+      pointer-events: none;
+    }
+    body {
+      position: relative;
+    }
+  </style>
+
+  <!-- 追加: iOSやAndroidでカメラ利用を促すヒント -->
+  <script>
+    // iOSでカメラ利用時のヒント
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      document.body.insertAdjacentHTML('beforeend', '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSでは「カメラの使用を許可」してください。<br>Safari推奨です。</div>');
+    }
+    // Androidでカメラ利用時のヒント
+    if (/Android/i.test(navigator.userAgent)) {
+      document.body.insertAdjacentHTML('beforeend', '<div style="color:#555;font-size:0.9em;margin-top:8px;">Androidでは「カメラの使用を許可」してください。<br>Chrome推奨です。</div>');
+    }
+    // ページロード時に自動でカメラを起動
+    window.addEventListener('DOMContentLoaded', () => {
+      startCamera();
     });
   </script>
   
