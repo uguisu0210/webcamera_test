@@ -3,31 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スマホカメラ表示（固定サイズ）</title>
+<title>スマホカメラ表示（中央円ガイド付き）</title>
 <style>
-  body { text-align: center; position: relative; }
+  body { text-align: center; position: relative; margin: 0; background: #000; }
   #camera-container { 
     position: relative; 
     display: inline-block; 
-    width: 480px; 
-    height: 360px; /* 固定サイズ */
+    width: 100vw;                /* 画面幅いっぱい */
+    max-width: 100%; 
+    aspect-ratio: 16 / 9;        /* アスペクト比固定（16:9） */
+    background: black;
   }
-  video, canvas {
-    width: 480px; 
-    height: 360px; /* 固定サイズ */
-    border: 1px solid #ccc;
-    display: block;
+  video, canvas, #no-signal {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  video {
+    object-fit: cover;           /* 映像を枠いっぱいに */
   }
   #overlay {
-    position: absolute;
-    top: 0; left: 0;
-    pointer-events: none; /* クリックを透過 */
+    pointer-events: none;        /* クリックやタップを透過 */
   }
   #no-signal {
-    position: absolute;
-    top: 0; left: 0;
-    width: 480px; 
-    height: 360px; /* 固定サイズ */
     display: none;
     align-items: center;
     justify-content: center;
@@ -56,15 +55,15 @@ const noSignal = document.getElementById('no-signal');
 const ctx = overlay.getContext('2d');
 
 function resizeOverlay() {
-  overlay.width = 480;
-  overlay.height = 360;
+  overlay.width = overlay.offsetWidth;
+  overlay.height = overlay.offsetHeight;
 }
 
 function drawCenterCircle() {
   ctx.clearRect(0, 0, overlay.width, overlay.height);
   const centerX = overlay.width / 2;
   const centerY = overlay.height / 2;
-  const radius = Math.min(overlay.width, overlay.height) / 4;
+  const radius = Math.min(overlay.width, overlay.height) / 4; // 円サイズ（画面の1/4）
   ctx.beginPath();
   ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
   ctx.lineWidth = 3;
@@ -83,11 +82,7 @@ function pauseCamera() {
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { 
-        facingMode: "environment",
-        width: { ideal: 480 },
-        height: { ideal: 360 }
-      },
+      video: { facingMode: "environment" }, // 背面カメラ
       audio: false
     });
     video.srcObject = stream;
@@ -102,15 +97,23 @@ async function startCamera() {
     alert('カメラの起動に失敗しました: ' + err.message);
   }
 }
+
+// ウィンドウリサイズ時に円を描き直す
+window.addEventListener('resize', () => {
+  resizeOverlay();
+  drawCenterCircle();
+});
 </script>
 
 <script>
-// OS別ヒント
+// OS別の利用ヒント
 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-  document.body.insertAdjacentHTML('beforeend', '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSでは「カメラの使用を許可」してください。<br>Safari推奨です。</div>');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSでは「カメラの使用を許可」してください。<br>Safari推奨です。</div>');
 }
 if (/Android/i.test(navigator.userAgent)) {
-  document.body.insertAdjacentHTML('beforeend', '<div style="color:#555;font-size:0.9em;margin-top:8px;">Androidでは「カメラの使用を許可」してください。<br>Chrome推奨です。</div>');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div style="color:#555;font-size:0.9em;margin-top:8px;">Androidでは「カメラの使用を許可」してください。<br>Chrome推奨です。</div>');
 }
 </script>
 
