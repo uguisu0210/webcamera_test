@@ -3,14 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スマホカメラ表示</title>
+<title>スマホカメラ表示（固定サイズ）</title>
 <style>
   body { text-align: center; position: relative; }
-  #camera-container { position: relative; display: inline-block; }
+  #camera-container { 
+    position: relative; 
+    display: inline-block; 
+    width: 480px; 
+    height: 360px; /* 固定サイズ */
+  }
   video, canvas {
-    width: 100%;
-    max-width: 480px;
-    height: auto;
+    width: 480px; 
+    height: 360px; /* 固定サイズ */
     border: 1px solid #ccc;
     display: block;
   }
@@ -22,7 +26,8 @@
   #no-signal {
     position: absolute;
     top: 0; left: 0;
-    width: 100%; height: 100%;
+    width: 480px; 
+    height: 360px; /* 固定サイズ */
     display: none;
     align-items: center;
     justify-content: center;
@@ -51,15 +56,15 @@ const noSignal = document.getElementById('no-signal');
 const ctx = overlay.getContext('2d');
 
 function resizeOverlay() {
-  overlay.width = video.offsetWidth;
-  overlay.height = video.offsetHeight;
+  overlay.width = 480;
+  overlay.height = 360;
 }
 
 function drawCenterCircle() {
   ctx.clearRect(0, 0, overlay.width, overlay.height);
   const centerX = overlay.width / 2;
   const centerY = overlay.height / 2;
-  const radius = Math.min(overlay.width, overlay.height) / 4; // 画面サイズの1/4の半径
+  const radius = Math.min(overlay.width, overlay.height) / 4;
   ctx.beginPath();
   ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
   ctx.lineWidth = 3;
@@ -78,14 +83,17 @@ function pauseCamera() {
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
+      video: { 
+        facingMode: "environment",
+        width: { ideal: 480 },
+        height: { ideal: 360 }
+      },
       audio: false
     });
     video.srcObject = stream;
     video.play();
     noSignal.style.display = "none";
 
-    // オーバーレイサイズと円描画
     resizeOverlay();
     drawCenterCircle();
   } catch (err) {
@@ -94,16 +102,10 @@ async function startCamera() {
     alert('カメラの起動に失敗しました: ' + err.message);
   }
 }
-
-// ウィンドウサイズ変化時に円を中央に描き直す
-window.addEventListener('resize', () => {
-  resizeOverlay();
-  drawCenterCircle();
-});
 </script>
 
 <script>
-// OS別のヒント
+// OS別ヒント
 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
   document.body.insertAdjacentHTML('beforeend', '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSでは「カメラの使用を許可」してください。<br>Safari推奨です。</div>');
 }
