@@ -11,9 +11,18 @@
   </style>
 </head>
 <body>
-  <h1>カメラを起動</h1>
+  
   <video id="video" autoplay playsinline></video><br>
   <button onclick="startCamera()">カメラ開始</button>
+  <button onclick="pauseCamera()">静止</button>
+  <script>
+    function pauseCamera() {
+      const video = document.getElementById('video');
+      if (!video.paused) {
+        video.pause();
+      }
+    }
+  </script>
 
   <script>
     async function startCamera() {
@@ -30,7 +39,7 @@
     }
   </script>
 
-  <div id="no-signal" style="display:none; color:black; background-color: #ccc; font-size:1.2em; margin-top:10px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; height:100%; display:flex; align-items:center; justify-content:center; z-index:2;">No signal</div>
+  <div id="no-signal" style="display:none; color:black; font-size:1.2em; margin-top:10px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:100%; max-width:480px; height:100%; display:flex; align-items:center; justify-content:center; z-index:2;">No signal</div>
   <script>
     const video = document.getElementById('video');
     const noSignal = document.getElementById('no-signal');
