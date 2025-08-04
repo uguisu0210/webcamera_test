@@ -55,9 +55,7 @@
   <canvas id="overlay"></canvas>
   <div id="no-signal">No signal</div>
 </div><br>
-<button onclick="startCamera()">カメラ開始</button>
-<button onclick="pauseCamera()">静止</button>
-<button onclick="resumeCamera()">再開</button>
+<button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
 
 <div id="af-status">AF状態: 未確認</div>
 
@@ -66,9 +64,11 @@ const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const noSignal = document.getElementById('no-signal');
 const afStatus = document.getElementById('af-status');
+const controlBtn = document.getElementById('control-btn');
 const ctx = overlay.getContext('2d');
 
 let isPaused = false;
+let isStarted = false;
 let savedStream = null;
 
 function resizeOverlay() {
@@ -93,6 +93,7 @@ function pauseCamera() {
     video.pause(); // 一時停止
     isPaused = true;
     afStatus.textContent = "AF状態: 一時停止中";
+    controlBtn.textContent = "再開";
   }
 }
 
@@ -101,6 +102,7 @@ function resumeCamera() {
     video.play(); // 再開
     isPaused = false;
     afStatus.textContent = "AF状態: 再開中";
+    controlBtn.textContent = "静止";
   }
 }
 
@@ -129,7 +131,9 @@ async function startCamera() {
     video.srcObject = stream;
     video.play();
     isPaused = false;
+    isStarted = true;
     noSignal.style.display = "none";
+    controlBtn.textContent = "静止";
 
     const track = stream.getVideoTracks()[0];
     const capabilities = track.getCapabilities();
@@ -147,6 +151,16 @@ async function startCamera() {
     video.srcObject = null;
     afStatus.textContent = "AF状態: 起動失敗";
     alert('カメラの起動に失敗しました: ' + err.message);
+  }
+}
+
+function toggleCamera() {
+  if (!isStarted) {
+    startCamera();
+  } else if (!isPaused) {
+    pauseCamera();
+  } else {
+    resumeCamera();
   }
 }
 
