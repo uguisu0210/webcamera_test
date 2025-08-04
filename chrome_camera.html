@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>カメラ表示（中央円ガイド＋オートフォーカス表示）</title>
+<title>カメラ表示（中央円ガイド＋オートフォーカス＋静止/再開）</title>
 <style>
   body {
     text-align: center;
@@ -57,6 +57,7 @@
 </div><br>
 <button onclick="startCamera()">カメラ開始</button>
 <button onclick="pauseCamera()">静止</button>
+<button onclick="resumeCamera()">再開</button>
 
 <div id="af-status">AF状態: 未確認</div>
 
@@ -66,6 +67,9 @@ const overlay = document.getElementById('overlay');
 const noSignal = document.getElementById('no-signal');
 const afStatus = document.getElementById('af-status');
 const ctx = overlay.getContext('2d');
+
+let isPaused = false;
+let savedStream = null;
 
 function resizeOverlay() {
   overlay.width = overlay.offsetWidth;
@@ -85,11 +89,18 @@ function drawCenterCircle() {
 }
 
 function pauseCamera() {
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(track => track.stop());
-    video.srcObject = null;
-    noSignal.style.display = "flex";
-    afStatus.textContent = "AF状態: 停止中";
+  if (video.srcObject && !isPaused) {
+    video.pause(); // 一時停止
+    isPaused = true;
+    afStatus.textContent = "AF状態: 一時停止中";
+  }
+}
+
+function resumeCamera() {
+  if (savedStream && isPaused) {
+    video.play(); // 再開
+    isPaused = false;
+    afStatus.textContent = "AF状態: 再開中";
   }
 }
 
@@ -102,7 +113,6 @@ async function startCamera() {
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    // オートフォーカスを試みる制約
     const constraints = {
       video: isMobile
         ? {
@@ -115,20 +125,19 @@ async function startCamera() {
     };
 
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    savedStream = stream;
     video.srcObject = stream;
     video.play();
+    isPaused = false;
     noSignal.style.display = "none";
 
-    // 追加: 対応ブラウザでは AF を適用
     const track = stream.getVideoTracks()[0];
     const capabilities = track.getCapabilities();
     if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
       await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
       afStatus.textContent = "AF状態: オートフォーカス有効";
-      console.log("オートフォーカス（continuous）適用済み");
     } else {
       afStatus.textContent = "AF状態: オートフォーカス非対応";
-      console.log("focusMode制御はこの端末/ブラウザでは非対応");
     }
 
     resizeOverlay();
@@ -137,14 +146,7 @@ async function startCamera() {
     noSignal.style.display = "flex";
     video.srcObject = null;
     afStatus.textContent = "AF状態: 起動失敗";
-
-    if (err.name === "NotAllowedError") {
-      alert("カメラの使用が許可されていません。ブラウザ設定を確認してください。");
-    } else if (err.name === "NotFoundError") {
-      alert("カメラデバイスが見つかりません。接続を確認してください。");
-    } else {
-      alert('カメラの起動に失敗しました: ' + err.message);
-    }
+    alert('カメラの起動に失敗しました: ' + err.message);
   }
 }
 
@@ -153,7 +155,7 @@ window.addEventListener('resize', () => {
   drawCenterCircle();
 });
 
-// OS別の利用ヒント
+// OS別ヒント
 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
   document.body.insertAdjacentHTML('beforeend',
     '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSではカメラの許可を有効にしてください。Safari推奨です。</div>');
