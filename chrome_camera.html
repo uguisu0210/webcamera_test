@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>カメラ表示（中央円ガイド付き・PC/スマホ対応）</title>
+<title>カメラ表示（中央円ガイド＋オートフォーカス）</title>
 <style>
   body {
     text-align: center;
@@ -86,7 +86,6 @@ function pauseCamera() {
 
 async function startCamera() {
   try {
-    // HTTPSチェック（localhostはOK）
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       alert('カメラはHTTPS接続またはlocalhostでのみ使用できます。');
       return;
@@ -94,10 +93,15 @@ async function startCamera() {
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+    // オートフォーカスを試みる制約
     const constraints = {
       video: isMobile
-        ? { facingMode: { ideal: "environment" } } // スマホは背面カメラ優先
-        : { width: { ideal: 1280 }, height: { ideal: 720 } }, // PCはHD解像度指定
+        ? {
+            facingMode: { ideal: "environment" },
+            focusMode: "continuous",
+            advanced: [{ focusMode: "continuous" }]
+          }
+        : { width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     };
 
@@ -105,6 +109,16 @@ async function startCamera() {
     video.srcObject = stream;
     video.play();
     noSignal.style.display = "none";
+
+    // 追加: 対応ブラウザでは AF を適用
+    const track = stream.getVideoTracks()[0];
+    const capabilities = track.getCapabilities();
+    if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+      await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+      console.log("オートフォーカス（continuous）適用済み");
+    } else {
+      console.log("focusMode制御はこの端末/ブラウザでは非対応");
+    }
 
     resizeOverlay();
     drawCenterCircle();
@@ -130,11 +144,11 @@ window.addEventListener('resize', () => {
 // OS別の利用ヒント
 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
   document.body.insertAdjacentHTML('beforeend',
-    '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSでは「カメラの使用を許可」してください。<br>Safari推奨です。</div>');
+    '<div style="color:#555;font-size:0.9em;margin-top:8px;">iOSではカメラの許可を有効にしてください。Safari推奨です。</div>');
 }
 if (/Android/i.test(navigator.userAgent)) {
   document.body.insertAdjacentHTML('beforeend',
-    '<div style="color:#555;font-size:0.9em;margin-top:8px;">Androidでは「カメラの使用を許可」してください。<br>Chrome推奨です。</div>');
+    '<div style="color:#555;font-size:0.9em;margin-top:8px;">Androidではカメラの許可を有効にしてください。Chrome推奨です。</div>');
 }
 if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
   document.body.insertAdjacentHTML('beforeend',
