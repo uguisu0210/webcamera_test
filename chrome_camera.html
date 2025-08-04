@@ -9,7 +9,7 @@
     text-align: center;
     position: relative;
     margin: 0;
-    background: #fff; /* 背景は白 */
+    background: #fff;
   }
   #camera-container { 
     position: relative; 
@@ -17,7 +17,7 @@
     width: 100vw;                
     max-width: 100%; 
     aspect-ratio: 16 / 9;        
-    background: black;           /* カメラ枠部分だけ黒 */
+    background: black;
   }
   video, canvas, #no-signal {
     position: absolute;
@@ -26,10 +26,10 @@
     height: 100%;
   }
   video {
-    object-fit: cover;           
+    object-fit: cover;
   }
   #overlay {
-    pointer-events: none;        
+    pointer-events: none;
   }
   #no-signal {
     display: none;
@@ -86,12 +86,18 @@ function pauseCamera() {
 
 async function startCamera() {
   try {
+    // HTTPSチェック（localhostはOK）
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      alert('カメラはHTTPS接続またはlocalhostでのみ使用できます。');
+      return;
+    }
+
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     const constraints = {
       video: isMobile
-        ? { facingMode: { exact: "environment" } } // スマホは背面カメラ
-        : true,                                    // PCは既定のカメラ
+        ? { facingMode: { ideal: "environment" } } // スマホは背面カメラ優先
+        : { width: { ideal: 1280 }, height: { ideal: 720 } }, // PCはHD解像度指定
       audio: false
     };
 
@@ -105,7 +111,14 @@ async function startCamera() {
   } catch (err) {
     noSignal.style.display = "flex";
     video.srcObject = null;
-    alert('カメラの起動に失敗しました: ' + err.message);
+
+    if (err.name === "NotAllowedError") {
+      alert("カメラの使用が許可されていません。ブラウザ設定を確認してください。");
+    } else if (err.name === "NotFoundError") {
+      alert("カメラデバイスが見つかりません。接続を確認してください。");
+    } else {
+      alert('カメラの起動に失敗しました: ' + err.message);
+    }
   }
 }
 
