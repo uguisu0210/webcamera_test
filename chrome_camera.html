@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>カメラ表示（中央円ガイド＋オートフォーカス＋静止/再開）</title>
+<title>カメラ表示（中央円ガイド＋オートフォーカス＋静止/再開＋画像保存）</title>
 <style>
   body {
     text-align: center;
@@ -56,6 +56,7 @@
   <div id="no-signal">No signal</div>
 </div><br>
 <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
+<button onclick="saveImage()">画像保存</button>
 
 <div id="af-status">AF状態: 未確認</div>
 
@@ -162,6 +163,24 @@ function toggleCamera() {
   } else {
     resumeCamera();
   }
+}
+
+// ★ 画像保存機能
+function saveImage() {
+  if (!isStarted) {
+    alert("カメラを開始してください。");
+    return;
+  }
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = video.videoWidth;
+  tempCanvas.height = video.videoHeight;
+  const tempCtx = tempCanvas.getContext("2d");
+  tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+  
+  const link = document.createElement("a");
+  link.download = `camera_capture_${Date.now()}.png`;
+  link.href = tempCanvas.toDataURL("image/png");
+  link.click();
 }
 
 window.addEventListener('resize', () => {
