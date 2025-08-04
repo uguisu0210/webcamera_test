@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>カメラ表示（中央円ガイド＋オートフォーカス＋静止/再開＋画像保存）</title>
+<title>カメラ表示（中央円ガイド＋AF＋静止/再開＋画像保存確認）</title>
 <style>
   body {
     text-align: center;
@@ -25,12 +25,8 @@
     width: 100%;
     height: 100%;
   }
-  video {
-    object-fit: cover;
-  }
-  #overlay {
-    pointer-events: none;
-  }
+  video { object-fit: cover; }
+  #overlay { pointer-events: none; }
   #no-signal {
     display: none;
     align-items: center;
@@ -46,6 +42,39 @@
     font-size: 0.9em;
     color: #555;
   }
+  /* プレビュー確認ダイアログ */
+  #preview-dialog {
+    display: none;
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  #preview-box {
+    background: #fff;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 90%;
+  }
+  #preview-img {
+    max-width: 100%;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+  }
+  .preview-btn {
+    margin: 5px;
+    padding: 6px 12px;
+    font-size: 1em;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .save-btn { background: #4CAF50; color: white; }
+  .cancel-btn { background: #f44336; color: white; }
 </style>
 </head>
 <body>
@@ -55,10 +84,22 @@
   <canvas id="overlay"></canvas>
   <div id="no-signal">No signal</div>
 </div><br>
+
 <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
 <button onclick="saveImage()">画像保存</button>
 
 <div id="af-status">AF状態: 未確認</div>
+
+<!-- プレビュー確認UI -->
+<div id="preview-dialog">
+  <div id="preview-box">
+    <img id="preview-img" src="">
+    <div>
+      <button class="preview-btn save-btn" onclick="confirmSave()">保存する</button>
+      <button class="preview-btn cancel-btn" onclick="closePreview()">キャンセル</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const video = document.getElementById('video');
@@ -67,10 +108,13 @@ const noSignal = document.getElementById('no-signal');
 const afStatus = document.getElementById('af-status');
 const controlBtn = document.getElementById('control-btn');
 const ctx = overlay.getContext('2d');
+const previewDialog = document.getElementById('preview-dialog');
+const previewImg = document.getElementById('preview-img');
 
 let isPaused = false;
 let isStarted = false;
 let savedStream = null;
+let currentImageData = null; // 保存用画像データ
 
 function resizeOverlay() {
   overlay.width = overlay.offsetWidth;
@@ -91,7 +135,7 @@ function drawCenterCircle() {
 
 function pauseCamera() {
   if (video.srcObject && !isPaused) {
-    video.pause(); // 一時停止
+    video.pause();
     isPaused = true;
     afStatus.textContent = "AF状態: 一時停止中";
     controlBtn.textContent = "再開";
@@ -100,7 +144,7 @@ function pauseCamera() {
 
 function resumeCamera() {
   if (savedStream && isPaused) {
-    video.play(); // 再開
+    video.play();
     isPaused = false;
     afStatus.textContent = "AF状態: 再開中";
     controlBtn.textContent = "静止";
@@ -165,22 +209,36 @@ function toggleCamera() {
   }
 }
 
-// ★ 画像保存機能
+// ★ プレビュー付き画像保存
 function saveImage() {
   if (!isStarted) {
     alert("カメラを開始してください。");
     return;
   }
+
   const tempCanvas = document.createElement("canvas");
   tempCanvas.width = video.videoWidth;
   tempCanvas.height = video.videoHeight;
   const tempCtx = tempCanvas.getContext("2d");
   tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-  
+
+  currentImageData = tempCanvas.toDataURL("image/png");
+  previewImg.src = currentImageData;
+  previewDialog.style.display = "flex"; // プレビュー表示
+}
+
+function closePreview() {
+  previewDialog.style.display = "none";
+  currentImageData = null;
+}
+
+function confirmSave() {
+  if (!currentImageData) return;
   const link = document.createElement("a");
   link.download = `camera_capture_${Date.now()}.png`;
-  link.href = tempCanvas.toDataURL("image/png");
+  link.href = currentImageData;
   link.click();
+  closePreview();
 }
 
 window.addEventListener('resize', () => {
