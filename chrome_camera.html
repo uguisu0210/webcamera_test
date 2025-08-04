@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>カメラ表示（中央円ガイド＋AF＋静止/再開＋画像保存確認）</title>
+<title>カメラ表示（中央円ガイド＋AF＋静止/再開＋HTML内保存）</title>
 <style>
   body {
     text-align: center;
@@ -75,6 +75,19 @@
   }
   .save-btn { background: #4CAF50; color: white; }
   .cancel-btn { background: #f44336; color: white; }
+  /* 保存履歴 */
+  #saved-images {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  #saved-images img {
+    max-width: 150px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
 </style>
 </head>
 <body>
@@ -101,6 +114,10 @@
   </div>
 </div>
 
+<!-- 保存履歴 -->
+<h3>保存された画像</h3>
+<div id="saved-images"></div>
+
 <script>
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
@@ -110,11 +127,12 @@ const controlBtn = document.getElementById('control-btn');
 const ctx = overlay.getContext('2d');
 const previewDialog = document.getElementById('preview-dialog');
 const previewImg = document.getElementById('preview-img');
+const savedImages = document.getElementById('saved-images');
 
 let isPaused = false;
 let isStarted = false;
 let savedStream = null;
-let currentImageData = null; // 保存用画像データ
+let currentImageData = null;
 
 function resizeOverlay() {
   overlay.width = overlay.offsetWidth;
@@ -209,7 +227,7 @@ function toggleCamera() {
   }
 }
 
-// ★ プレビュー付き画像保存
+// ★ プレビュー付き画像保存（HTML内のみ）
 function saveImage() {
   if (!isStarted) {
     alert("カメラを開始してください。");
@@ -224,7 +242,7 @@ function saveImage() {
 
   currentImageData = tempCanvas.toDataURL("image/png");
   previewImg.src = currentImageData;
-  previewDialog.style.display = "flex"; // プレビュー表示
+  previewDialog.style.display = "flex";
 }
 
 function closePreview() {
@@ -234,10 +252,9 @@ function closePreview() {
 
 function confirmSave() {
   if (!currentImageData) return;
-  const link = document.createElement("a");
-  link.download = `camera_capture_${Date.now()}.png`;
-  link.href = currentImageData;
-  link.click();
+  const img = document.createElement("img");
+  img.src = currentImageData;
+  savedImages.appendChild(img);
   closePreview();
 }
 
