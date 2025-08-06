@@ -252,6 +252,29 @@ function closePreview() {
 
 function confirmSave() {
   if (!currentImageData) return;
+
+  // Flaskサーバに送信
+  fetch("http://localhost:5000/upload", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ image: currentImageData })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "ok") {
+      console.log("保存成功:", data.filename);
+      alert("Pythonサーバに保存しました: " + data.filename);
+    } else {
+      alert("保存失敗: " + data.message);
+    }
+  })
+  .catch(err => {
+    alert("サーバ送信エラー: " + err);
+  });
+
+  // HTML上の保存履歴にも追加
   const img = document.createElement("img");
   img.src = currentImageData;
   savedImages.appendChild(img);
@@ -280,3 +303,4 @@ if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
 
 </body>
 </html>
+
