@@ -161,37 +161,48 @@ function closePreview() {
   currentImageData = null;
 }
 function confirmSave() {
-  if (!currentImageData) return;
+  if (!currentImageData) {
+    alert("保存する画像がありません。先に撮影してください。");
+    return;
+  }
 
-  // Flaskサーバへ送信
+  console.log("[DEBUG] 画像送信開始");
+
   fetch("http://localhost:5000/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: currentImageData })
   })
-  .then(res => res.json())
+  .then(async (res) => {
+    // ステータスコードチェック
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(`HTTP ${res.status}: ${errData.message || "不明なエラー"}`);
+    }
+    return res.json();
+  })
   .then(data => {
     if (data.status === "ok") {
-      alert("Pythonサーバに保存しました: " + data.filename);
+      console.log("[INFO] Pythonサーバに保存しました:", data.filename);
+      alert(`Pythonサーバに保存しました: ${data.filename}`);
     } else {
-      alert("保存失敗: " + data.message);
+      throw new Error(data.message || "サーバーがエラーを返しました");
     }
   })
   .catch(err => {
-    alert("サーバ送信エラー: " + err);
+    console.error("[ERROR] 送信失敗:", err);
+    alert(`サーバ送信エラー: ${err.message}`);
   });
 
   // HTML内にも保存
   const img = document.createElement("img");
   img.src = currentImageData;
   savedImages.appendChild(img);
+
   closePreview();
 }
-window.addEventListener('resize', () => {
-  resizeOverlay();
-  drawCenterCircle();
-});
 </script>
 
 </body>
 </html>
+
