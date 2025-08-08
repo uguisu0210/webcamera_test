@@ -1,139 +1,66 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>カメラ表示（中央円ガイド＋AF＋静止/再開＋Flask送信）</title>
-  <style>
-    body { text-align: center; margin: 0; background: #fff; }
-    #camera-container {
-      position: relative;
-      display: inline-block;
-    }
-    video {
-      width: 100%;
-      max-width: 480px;
-      height: auto;
-    }
-    canvas {
-      display: none;
-    }
-    #circle-guide {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 100px;
-      height: 100px;
-      margin-left: -50px;
-      margin-top: -50px;
-      border: 2px solid red;
-      border-radius: 50%;
-      pointer-events: none;
-    }
-    #control-btn, #save-btn {
-      margin-top: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カメラ表示（修正版）</title>
 </head>
 <body>
-  <h1>カメラ表示（中央円ガイド付き）</h1>
-  <div id="camera-container">
-    <video id="video" autoplay playsinline></video>
-    <div id="circle-guide"></div>
-  </div>
-  <br/>
-  <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
-  <button id="save-btn" onclick="confirmSave()">画像保存</button>
-  <canvas id="canvas"></canvas>
+  <h1>カメラテスト</h1>
+  <video id="video" autoplay playsinline></video>
+  <br>
+  <button onclick="toggleCamera()">カメラ切り替え</button>
+  <button onclick="saveImage()">画像保存</button>
 
   <script>
-    let isCameraOn = false;
-    let stream = null;
+    let usingFrontCamera = true;
+    let currentStream = null;
 
     async function startCamera() {
-      try {
-        const constraints = {
-          video: {
-            facingMode: "environment",
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            focusMode: "continuous"  // 一部のスマホで有効
-          },
-          audio: false
-        };
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
 
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const constraints = {
+        video: {
+          facingMode: usingFrontCamera ? "user" : "environment"
+        },
+        audio: false
+      };
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         const video = document.getElementById('video');
         video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          video.play();
-        };
-        console.log("[DEBUG] カメラ開始");
+        currentStream = stream;
       } catch (err) {
-        console.error("[ERROR] カメラ起動失敗:", err);
-      }
-    }
-
-    function stopCamera() {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-        console.log("[DEBUG] カメラ停止");
+        console.error("カメラの取得に失敗:", err);
       }
     }
 
     function toggleCamera() {
-      const button = document.getElementById('control-btn');
-      if (!isCameraOn) {
-        startCamera();
-        button.textContent = "カメラ停止";
-      } else {
-        stopCamera();
-        document.getElementById('video').srcObject = null;
-        button.textContent = "カメラ開始";
-      }
-      isCameraOn = !isCameraOn;
+      usingFrontCamera = !usingFrontCamera;
+      startCamera();
     }
 
-    function confirmSave() {
-      if (!isCameraOn) {
-        alert("カメラが起動していません");
-        return;
-      }
-
-      console.log("[DEBUG] 画像送信開始");
-
+    function saveImage() {
       const video = document.getElementById('video');
-      const canvas = document.getElementById('canvas');
+      const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob(blob => {
-        const formData = new FormData();
-        formData.append('image', blob, 'snapshot.jpg');
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        fetch('http://localhost:5000/upload', {
-          method: 'POST',
-          body: formData
-        })
-        .then(response => {
-          if (response.ok) {
-            alert("画像を保存しました");
-            console.log("[DEBUG] 送信成功");
-          } else {
-            throw new Error("サーバーエラー");
-          }
-        })
-        .catch(err => {
-          console.error("[ERROR] 送信失敗:", err);
-          alert("送信に失敗しました");
-        });
-      }, 'image/jpeg');
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = 'capture.png';
+      link.click();
     }
+
+    window.onload = () => {
+      startCamera();
+    };
   </script>
 </body>
 </html>
