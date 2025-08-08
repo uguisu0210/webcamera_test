@@ -168,7 +168,7 @@ function confirmSave() {
 
   console.log("[DEBUG] 画像送信開始");
 
-  fetch("http://localhost:5000/upload", {
+  fetch("http://192.168.0.3:5000/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: currentImageData })
@@ -205,4 +205,5 @@ function confirmSave() {
 
 </body>
 </html>
+
 
