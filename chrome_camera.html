@@ -44,8 +44,8 @@
     <div id="circle-guide"></div>
   </div>
   <br/>
-  <button id="control-btn">カメラ開始</button>
-  <button id="save-btn">画像保存</button>
+  <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
+  <button id="save-btn" onclick="confirmSave()">画像保存</button>
   <canvas id="canvas"></canvas>
 
   <script>
@@ -134,10 +134,6 @@
         });
       }, 'image/jpeg');
     }
-
-    // ✅ ボタンのonclickをJS側で登録（DOMが読み込まれた後に実行されるように）
-    document.getElementById('control-btn').onclick = toggleCamera;
-    document.getElementById('save-btn').onclick = confirmSave;
   </script>
 </body>
-</html>
+</html> 
