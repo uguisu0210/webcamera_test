@@ -110,8 +110,13 @@ async function startCamera() {
     };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     savedStream = stream;
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    savedStream = stream;
     video.srcObject = stream;
+    video.onloadedmetadata = () => {
     video.play();
+    };
+
     isPaused = false;
     isStarted = true;
     noSignal.style.display = "none";
@@ -204,3 +209,4 @@ function confirmSave() {
 
 </body>
 </html>
+
