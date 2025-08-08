@@ -1,214 +1,163 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>カメラ表示（中央円ガイド＋AF＋静止/再開＋Flask送信）</title>
-<style>
-  body { text-align: center; margin: 0; background: #fff; }
-  #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16 / 9; background: black; }
-  video, canvas, #no-signal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  video { object-fit: cover; }
-  #overlay { pointer-events: none; }
-  #no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
-  button { margin-top: 10px; }
-  #af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
-  #preview-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999; }
-  #preview-box { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; }
-  #preview-img { max-width: 100%; border: 1px solid #ccc; margin-bottom: 10px; }
-  .preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
-  .save-btn { background: #4CAF50; color: white; }
-  .cancel-btn { background: #f44336; color: white; }
-  #saved-images { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  #saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>カメラ表示（中央円ガイド＋AF＋静止/再開＋Flask送信）</title>
+  <style>
+    body { text-align: center; margin: 0; background: #fff; }
+    #camera-container { position: relative; display: inline-block; }
+    video, canvas {
+      width: 100vw;
+      height: auto;
+      max-width: 100%;
+    }
+    #guide-circle {
+      position: absolute;
+      border: 2px solid red;
+      border-radius: 50%;
+      width: 100px;
+      height: 100px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    #controls { margin: 10px; }
+    #previewModal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+    }
+    #previewModal img {
+      max-width: 90%;
+      max-height: 90%;
+    }
+    #savedImages img {
+      max-width: 100px;
+      margin: 5px;
+    }
+  </style>
 </head>
 <body>
 
-<div id="camera-container">
-  <video id="video" autoplay playsinline></video>
-  <canvas id="overlay"></canvas>
-  <div id="no-signal">No signal</div>
-</div><br>
+  <h2>カメラビュー</h2>
+  <div id="camera-container">
+    <video id="video" autoplay playsinline></video>
+    <div id="guide-circle"></div>
+  </div>
 
-<button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
-<button onclick="saveImage()">画像保存</button>
-<div id="af-status">AF状態: 未確認</div>
+  <div id="controls">
+    <button onclick="captureImage()">撮影</button>
+    <button onclick="toggleCamera()">カメラ再開/停止</button>
+  </div>
 
-<div id="preview-dialog">
-  <div id="preview-box">
-    <img id="preview-img" src="">
+  <div id="previewModal" onclick="closePreview()">
+    <img id="previewImage" />
     <div>
-      <button class="preview-btn save-btn" onclick="confirmSave()">保存する</button>
-      <button class="preview-btn cancel-btn" onclick="closePreview()">キャンセル</button>
+      <button onclick="confirmSave()">保存</button>
+      <button onclick="closePreview()">キャンセル</button>
     </div>
   </div>
-</div>
 
-<h3>保存された画像（HTML内）</h3>
-<div id="saved-images"></div>
+  <h3>保存された画像</h3>
+  <div id="savedImages"></div>
 
-<script>
-const video = document.getElementById('video');
-const overlay = document.getElementById('overlay');
-const noSignal = document.getElementById('no-signal');
-const afStatus = document.getElementById('af-status');
-const controlBtn = document.getElementById('control-btn');
-const ctx = overlay.getContext('2d');
-const previewDialog = document.getElementById('preview-dialog');
-const previewImg = document.getElementById('preview-img');
-const savedImages = document.getElementById('saved-images');
+  <script>
+    const video = document.getElementById("video");
+    const previewModal = document.getElementById("previewModal");
+    const previewImage = document.getElementById("previewImage");
+    const savedImages = document.getElementById("savedImages");
 
-let isPaused = false;
-let isStarted = false;
-let savedStream = null;
-let currentImageData = null;
+    let stream = null;
+    let currentImageData = null;
 
-function resizeOverlay() {
-  overlay.width = overlay.offsetWidth;
-  overlay.height = overlay.offsetHeight;
-}
-function drawCenterCircle() {
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
-  const centerX = overlay.width / 2;
-  const centerY = overlay.height / 2;
-  const radius = Math.min(overlay.width, overlay.height) / 4;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "black";
-  ctx.stroke();
-}
-function pauseCamera() {
-  if (video.srcObject && !isPaused) {
-    video.pause();
-    isPaused = true;
-    afStatus.textContent = "AF状態: 一時停止中";
-    controlBtn.textContent = "再開";
-  }
-}
-function resumeCamera() {
-  if (savedStream && isPaused) {
-    video.play();
-    isPaused = false;
-    afStatus.textContent = "AF状態: 再開中";
-    controlBtn.textContent = "静止";
-  }
-}
-async function startCamera() {
-  try {
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      alert('カメラはHTTPS接続またはlocalhostでのみ使用できます。');
-      return;
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("カメラの起動に失敗しました: " + err);
+        console.error(err);
+      }
     }
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const constraints = {
-      video: isMobile
-        ? { facingMode: { ideal: "environment" }, focusMode: "continuous", advanced: [{ focusMode: "continuous" }] }
-        : { width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    savedStream = stream;
-    video.srcObject = stream;
-    video.play();
-    isPaused = false;
-    isStarted = true;
-    noSignal.style.display = "none";
-    controlBtn.textContent = "静止";
-    const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities();
-    if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
-      await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
-      afStatus.textContent = "AF状態: オートフォーカス有効";
-    } else {
-      afStatus.textContent = "AF状態: オートフォーカス非対応";
+
+    function toggleCamera() {
+      if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        stream = null;
+        video.srcObject = null;
+      } else {
+        startCamera();
+      }
     }
-    resizeOverlay();
-    drawCenterCircle();
-  } catch (err) {
-    noSignal.style.display = "flex";
-    video.srcObject = null;
-    afStatus.textContent = "AF状態: 起動失敗";
-    alert('カメラの起動に失敗しました: ' + err.message);
-  }
-}
-function toggleCamera() {
-  if (!isStarted) {
-    startCamera();
-  } else if (!isPaused) {
-    pauseCamera();
-  } else {
-    resumeCamera();
-  }
-}
-function saveImage() {
-  if (!isStarted) {
-    alert("カメラを開始してください。");
-    return;
-  }
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = video.videoWidth;
-  tempCanvas.height = video.videoHeight;
-  const tempCtx = tempCanvas.getContext("2d");
-  tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-  currentImageData = tempCanvas.toDataURL("image/png");
-  previewImg.src = currentImageData;
-  previewDialog.style.display = "flex";
-}
-function closePreview() {
-  previewDialog.style.display = "none";
-  currentImageData = null;
-}
-function confirmSave() {
-  if (!currentImageData) {
-    alert("保存する画像がありません。先に撮影してください。");
-    return;
-  }
 
-  console.log("[DEBUG] 画像送信開始");
-
-  fetch("https://23baf4365d39.ngrok-free.app", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: currentImageData })
-  })
-  .then(async (res) => {
-    // ステータスコードチェック
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(`HTTP ${res.status}: ${errData.message || "不明なエラー"}`);
+    function captureImage() {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataURL = canvas.toDataURL("image/png");
+      previewImage.src = dataURL;
+      previewModal.style.display = "flex";
+      currentImageData = dataURL;
     }
-    return res.json();
-  })
-  .then(data => {
-    if (data.status === "ok") {
-      console.log("[INFO] Pythonサーバに保存しました:", data.filename);
-      alert(`Pythonサーバに保存しました: ${data.filename}`);
-    } else {
-      throw new Error(data.message || "サーバーがエラーを返しました");
+
+    function closePreview() {
+      previewModal.style.display = "none";
     }
-  })
-  .catch(err => {
-    console.error("[ERROR] 送信失敗:", err);
-    alert(`サーバ送信エラー: ${err.message}`);
-  });
 
-  // HTML内にも保存
-  const img = document.createElement("img");
-  img.src = currentImageData;
-  savedImages.appendChild(img);
+    const SERVER_URL = "https://23baf4365d39.ngrok-free.app"; // ← あなたのngrok HTTPSアドレスに変更！
 
-  closePreview();
-}
-</script>
+    function confirmSave() {
+      if (!currentImageData) {
+        alert("保存する画像がありません。先に撮影してください。");
+        return;
+      }
+
+      console.log("[DEBUG] 画像送信開始");
+
+      fetch(`${SERVER_URL}/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: currentImageData })
+      })
+      .then(async (res) => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(`HTTP ${res.status}: ${errData.message || "不明なエラー"}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (data.status === "ok") {
+          console.log("[INFO] Pythonサーバに保存しました:", data.filename);
+          alert(`Pythonサーバに保存しました: ${data.filename}`);
+        } else {
+          throw new Error(data.message || "サーバーがエラーを返しました");
+        }
+      })
+      .catch(err => {
+        console.error("[ERROR] 送信失敗:", err);
+        alert(`サーバ送信エラー: ${err.message}`);
+      });
+
+      // HTML上にも保存
+      const img = document.createElement("img");
+      img.src = currentImageData;
+      savedImages.appendChild(img);
+
+      closePreview();
+    }
+
+    // 初期化
+    window.onload = startCamera;
+  </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
