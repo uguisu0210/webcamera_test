@@ -13,14 +13,77 @@
   #no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
   button { margin-top: 10px; }
   #af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
-  #preview-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 9999; }
-  #preview-box { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; }
-  #preview-img { max-width: 100%; border: 1px solid #ccc; margin-bottom: 10px; }
-  .preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
+  #preview-dialog {
+    display: none;
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  #preview-box {
+    background: #fff;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 90%;
+  }
+  #preview-img {
+    max-width: 100%;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+  }
+  .preview-btn {
+    margin: 5px;
+    padding: 6px 12px;
+    font-size: 1em;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
   .save-btn { background: #4CAF50; color: white; }
   .cancel-btn { background: #f44336; color: white; }
-  #saved-images { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  #saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
+  #saved-images {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  #saved-images img {
+    max-width: 150px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  /* 完了ダイアログ */
+  #complete-dialog {
+    display: none;
+    position: fixed;
+    top:0; left:0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  }
+  #complete-dialog > div {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 90%;
+  }
+  #complete-btn {
+    padding: 8px 20px;
+    font-size: 1.1em;
+    border: none;
+    border-radius: 5px;
+    background: #4CAF50;
+    color: #fff;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -35,6 +98,7 @@
 <button onclick="saveImage()">画像保存</button>
 <div id="af-status">AF状態: 未確認</div>
 
+<!-- 撮影画像プレビュー＆保存ダイアログ -->
 <div id="preview-dialog">
   <div id="preview-box">
     <img id="preview-img" src="">
@@ -42,6 +106,14 @@
       <button class="preview-btn save-btn" onclick="confirmSave()">保存する</button>
       <button class="preview-btn cancel-btn" onclick="closePreview()">キャンセル</button>
     </div>
+  </div>
+</div>
+
+<!-- 保存完了ダイアログ -->
+<div id="complete-dialog">
+  <div>
+    <p>画像の保存が完了しました。</p>
+    <button id="complete-btn">完了</button>
   </div>
 </div>
 
@@ -68,7 +140,6 @@ let currentImageData = null;
 function getDeviceId() {
   let id = localStorage.getItem("device_id");
   if (!id) {
-    // ランダムID作成
     id = "device_" + Math.random().toString(36).slice(2);
     localStorage.setItem("device_id", id);
   }
@@ -181,7 +252,7 @@ function confirmSave() {
 
   console.log("[DEBUG] 画像送信開始 device_id=" + deviceId);
 
-  fetch("https://1a3b5c12c094.ngrok-free.app/upload", {
+  fetch("https://792cf08bf32f.ngrok-free.app/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ 
@@ -199,7 +270,25 @@ function confirmSave() {
   .then(data => {
     if (data.status === "ok") {
       console.log("[INFO] Pythonサーバに保存しました:", data.filename);
-      alert(`Pythonサーバに保存しました: ${data.filename}`);
+      // プレビュー閉じる
+      previewDialog.style.display = "none";
+
+      // 完了ダイアログ表示
+      const completeDialog = document.getElementById("complete-dialog");
+      completeDialog.style.display = "flex";
+
+      // 完了ボタンのクリックイベント（重複登録防止に一旦解除してから設定）
+      const completeBtn = document.getElementById("complete-btn");
+      completeBtn.onclick = null;
+      completeBtn.onclick = () => {
+        completeDialog.style.display = "none";
+        // HTML内にも保存
+        const img = document.createElement("img");
+        img.src = currentImageData;
+        savedImages.appendChild(img);
+
+        currentImageData = null;
+      };
     } else {
       throw new Error(data.message || "サーバーがエラーを返しました");
     }
@@ -208,13 +297,6 @@ function confirmSave() {
     console.error("[ERROR] 送信失敗:", err);
     alert(`サーバ送信エラー: ${err.message}`);
   });
-
-  // HTML内にも保存
-  const img = document.createElement("img");
-  img.src = currentImageData;
-  savedImages.appendChild(img);
-
-  closePreview();
 }
 
 window.addEventListener("resize", () => {
@@ -223,9 +305,7 @@ window.addEventListener("resize", () => {
     drawCenterCircle();
   }
 });
-
 </script>
 
 </body>
 </html>
-
