@@ -1,9 +1,8 @@
-あなた:
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>カメラ表示（中央円ガイド＋AF＋静止/再開＋Flask送信）</title>
 <style>
   body { text-align: center; margin: 0; background: #fff; }
@@ -49,8 +48,22 @@
 <h3>保存された画像（HTML内）</h3>
 <div id="saved-images"></div>
 
-
 <script>
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const noSignal = document.getElementById('no-signal');
+const afStatus = document.getElementById('af-status');
+const controlBtn = document.getElementById('control-btn');
+const ctx = overlay.getContext('2d');
+const previewDialog = document.getElementById('preview-dialog');
+const previewImg = document.getElementById('preview-img');
+const savedImages = document.getElementById('saved-images');
+
+let isPaused = false;
+let isStarted = false;
+let savedStream = null;
+let currentImageData = null;
+
 // 端末IDをlocalStorageに保存し取得する関数
 function getDeviceId() {
   let id = localStorage.getItem("device_id");
@@ -62,7 +75,102 @@ function getDeviceId() {
   return id;
 }
 
-// confirmSave() の fetch 部分を修正して device_id 追加
+function resizeOverlay() {
+  overlay.width = overlay.offsetWidth;
+  overlay.height = overlay.offsetHeight;
+}
+function drawCenterCircle() {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  const centerX = overlay.width / 2;
+  const centerY = overlay.height / 2;
+  const radius = Math.min(overlay.width, overlay.height) / 4;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "black";
+  ctx.stroke();
+}
+function pauseCamera() {
+  if (video.srcObject && !isPaused) {
+    video.pause();
+    isPaused = true;
+    afStatus.textContent = "AF状態: 一時停止中";
+    controlBtn.textContent = "再開";
+  }
+}
+function resumeCamera() {
+  if (savedStream && isPaused) {
+    video.play();
+    isPaused = false;
+    afStatus.textContent = "AF状態: 再開中";
+    controlBtn.textContent = "静止";
+  }
+}
+async function startCamera() {
+  try {
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      alert('カメラはHTTPS接続またはlocalhostでのみ使用できます。');
+      return;
+    }
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const constraints = {
+      video: isMobile
+        ? { facingMode: { ideal: "environment" }, focusMode: "continuous", advanced: [{ focusMode: "continuous" }] }
+        : { width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    savedStream = stream;
+    video.srcObject = stream;
+    video.play();
+    isPaused = false;
+    isStarted = true;
+    noSignal.style.display = "none";
+    controlBtn.textContent = "静止";
+    const track = stream.getVideoTracks()[0];
+    const capabilities = track.getCapabilities();
+    if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+      await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+      afStatus.textContent = "AF状態: オートフォーカス有効";
+    } else {
+      afStatus.textContent = "AF状態: オートフォーカス非対応";
+    }
+    resizeOverlay();
+    drawCenterCircle();
+  } catch (err) {
+    noSignal.style.display = "flex";
+    video.srcObject = null;
+    afStatus.textContent = "AF状態: 起動失敗";
+    alert('カメラの起動に失敗しました: ' + err.message);
+  }
+}
+function toggleCamera() {
+  if (!isStarted) {
+    startCamera();
+  } else if (!isPaused) {
+    pauseCamera();
+  } else {
+    resumeCamera();
+  }
+}
+function saveImage() {
+  if (!isStarted) {
+    alert("カメラを開始してください。");
+    return;
+  }
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = video.videoWidth;
+  tempCanvas.height = video.videoHeight;
+  const tempCtx = tempCanvas.getContext("2d");
+  tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+  currentImageData = tempCanvas.toDataURL("image/png");
+  previewImg.src = currentImageData;
+  previewDialog.style.display = "flex";
+}
+function closePreview() {
+  previewDialog.style.display = "none";
+  currentImageData = null;
+}
 function confirmSave() {
   if (!currentImageData) {
     alert("保存する画像がありません。先に撮影してください。");
@@ -73,7 +181,7 @@ function confirmSave() {
 
   console.log("[DEBUG] 画像送信開始 device_id=" + deviceId);
 
-  fetch("https://1a3b5c12c094.ngrok-free.app/upload", {
+  fetch("https://792cf08bf32f.ngrok-free.app/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ 
@@ -108,6 +216,15 @@ function confirmSave() {
 
   closePreview();
 }
+
+window.addEventListener("resize", () => {
+  if (isStarted) {
+    resizeOverlay();
+    drawCenterCircle();
+  }
+});
+
 </script>
 
-
+</body>
+</html>
