@@ -270,19 +270,17 @@ function confirmSave() {
   .then(data => {
     if (data.status === "ok") {
       console.log("[INFO] Pythonサーバに保存しました:", data.filename);
-      // プレビュー閉じる
       previewDialog.style.display = "none";
 
-      // 完了ダイアログ表示
       const completeDialog = document.getElementById("complete-dialog");
       completeDialog.style.display = "flex";
 
-      // 完了ボタンのクリックイベント（重複登録防止に一旦解除してから設定）
       const completeBtn = document.getElementById("complete-btn");
+      // 重複登録防止のためいったん解除
       completeBtn.onclick = null;
       completeBtn.onclick = () => {
         completeDialog.style.display = "none";
-        // HTML内にも保存
+
         const img = document.createElement("img");
         img.src = currentImageData;
         savedImages.appendChild(img);
