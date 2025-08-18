@@ -3,86 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>カメラ表示（中央円ガイド＋AF＋静止/再開＋Flask送信）</title>
+<title>カメラ表示＋ピンク解析</title>
 <style>
-  body { text-align: center; margin: 0; background: #fff; }
+  body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
   #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16 / 9; background: black; }
   video, canvas, #no-signal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   video { object-fit: cover; }
   #overlay { pointer-events: none; }
   #no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
-  button { margin-top: 10px; }
+  button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
   #af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
-  #preview-dialog {
-    display: none;
-    position: fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    background: rgba(0,0,0,0.6);
-    align-items: center; justify-content: center;
-    z-index: 9999;
-  }
-  #preview-box {
-    background: #fff;
-    padding: 15px;
-    border-radius: 10px;
-    text-align: center;
-    max-width: 90%;
-  }
-  #preview-img {
-    max-width: 100%;
-    border: 1px solid #ccc;
-    margin-bottom: 10px;
-  }
-  .preview-btn {
-    margin: 5px;
-    padding: 6px 12px;
-    font-size: 1em;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
+  #preview-dialog, #complete-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; }
+  #preview-box, #complete-dialog > div { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; }
+  #preview-img { max-width: 100%; border: 1px solid #ccc; margin-bottom: 10px; }
+  .preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
   .save-btn { background: #4CAF50; color: white; }
   .cancel-btn { background: #f44336; color: white; }
-  #saved-images {
-    margin-top: 15px;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-  }
-  #saved-images img {
-    max-width: 150px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  /* 完了ダイアログの修正CSS */
-  #complete-dialog {
-    position: fixed;
-    top:0; left:0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: none;  /* ここが最重要：初期は必ず非表示 */
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-  }
-  #complete-dialog > div {
-    background: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    max-width: 90%;
-  }
-  #complete-btn {
-    padding: 8px 20px;
-    font-size: 1.1em;
-    border: none;
-    border-radius: 5px;
-    background: #4CAF50;
-    color: #fff;
-    cursor: pointer;
-  }
+  #complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
+  #saved-images { margin-top: 15px; display: flex; justify-content: center; }
+  #saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
+  #analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
 </style>
 </head>
 <body>
@@ -97,7 +37,7 @@
 <button onclick="saveImage()">画像保存</button>
 <div id="af-status">AF状態: 未確認</div>
 
-<!-- 撮影画像プレビュー＆保存ダイアログ -->
+<!-- 撮影画像プレビュー -->
 <div id="preview-dialog">
   <div id="preview-box">
     <img id="preview-img" src="">
@@ -116,8 +56,11 @@
   </div>
 </div>
 
-<h3>保存された画像（HTML内）</h3>
+<h3>最新画像</h3>
 <div id="saved-images"></div>
+
+<h3>解析結果</h3>
+<div id="analysis-result"></div>
 
 <script>
 const video = document.getElementById('video');
@@ -129,13 +72,14 @@ const ctx = overlay.getContext('2d');
 const previewDialog = document.getElementById('preview-dialog');
 const previewImg = document.getElementById('preview-img');
 const savedImages = document.getElementById('saved-images');
+const analysisResult = document.getElementById('analysis-result');
 
 let isPaused = false;
 let isStarted = false;
 let savedStream = null;
 let currentImageData = null;
 
-// 端末IDをlocalStorageに保存し取得する関数
+// 端末ID
 function getDeviceId() {
   let id = localStorage.getItem("device_id");
   if (!id) {
@@ -185,7 +129,7 @@ async function startCamera() {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const constraints = {
       video: isMobile
-        ? { facingMode: { ideal: "environment" }, focusMode: "continuous", advanced: [{ focusMode: "continuous" }] }
+        ? { facingMode: { ideal: "environment" } }
         : { width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     };
@@ -197,14 +141,7 @@ async function startCamera() {
     isStarted = true;
     noSignal.style.display = "none";
     controlBtn.textContent = "静止";
-    const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities();
-    if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
-      await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
-      afStatus.textContent = "AF状態: オートフォーカス有効";
-    } else {
-      afStatus.textContent = "AF状態: オートフォーカス非対応";
-    }
+
     resizeOverlay();
     drawCenterCircle();
   } catch (err) {
@@ -215,13 +152,9 @@ async function startCamera() {
   }
 }
 function toggleCamera() {
-  if (!isStarted) {
-    startCamera();
-  } else if (!isPaused) {
-    pauseCamera();
-  } else {
-    resumeCamera();
-  }
+  if (!isStarted) startCamera();
+  else if (!isPaused) pauseCamera();
+  else resumeCamera();
 }
 function saveImage() {
   if (!isStarted) {
@@ -246,18 +179,11 @@ function confirmSave() {
     alert("保存する画像がありません。先に撮影してください。");
     return;
   }
-
   const deviceId = getDeviceId();
-
-  console.log("[DEBUG] 画像送信開始 device_id=" + deviceId);
-
-  fetch("https://866797d83d83.ngrok-free.app/upload", {
+  fetch("https://0c1a0f0baacf.ngrok-free.app/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      image: currentImageData,
-      device_id: deviceId
-    })
+    body: JSON.stringify({ image: currentImageData, device_id: deviceId })
   })
   .then(async (res) => {
     if (!res.ok) {
@@ -268,9 +194,7 @@ function confirmSave() {
   })
   .then(data => {
     if (data.status === "ok") {
-      console.log("[INFO] Pythonサーバに保存しました:", data.filename);
       previewDialog.style.display = "none";
-
       const completeDialog = document.getElementById("complete-dialog");
       completeDialog.style.display = "flex";
 
@@ -279,9 +203,19 @@ function confirmSave() {
       completeBtn.onclick = () => {
         completeDialog.style.display = "none";
 
+        // 最新画像だけ表示
+        savedImages.innerHTML = "";
         const img = document.createElement("img");
         img.src = currentImageData;
         savedImages.appendChild(img);
+
+        // 解析結果を上書き表示
+        analysisResult.innerHTML = `
+          平均RGB: ${data.pink_avg.avg_rgb}<br>
+          HEX: ${data.pink_avg.hex}<br>
+          濃淡スコア: ${data.pink_avg.shade_score} ( ${data.pink_avg.shade_level} )<br>
+          平均S: ${data.pink_avg.avg_S.toFixed(1)}, 平均V: ${data.pink_avg.avg_V.toFixed(1)}
+        `;
 
         currentImageData = null;
       };
@@ -305,6 +239,3 @@ window.addEventListener("resize", () => {
 
 </body>
 </html>
-
-
-
