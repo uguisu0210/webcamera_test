@@ -180,7 +180,7 @@ function confirmSave() {
     return;
   }
   const deviceId = getDeviceId();
-  fetch("https://0c1a0f0baacf.ngrok-free.app/upload", {
+  fetch("https://866797d83d83.ngrok-free.app/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: currentImageData, device_id: deviceId })
@@ -239,3 +239,4 @@ window.addEventListener("resize", () => {
 
 </body>
 </html>
+
