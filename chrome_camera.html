@@ -54,6 +54,7 @@ const previewCanvas = document.getElementById('preview-canvas');
 const previewCtx = previewCanvas.getContext('2d');
 const savedImages = document.getElementById('saved-images');
 const uploadInput = document.getElementById('upload-input');
+const video = document.getElementById("video");
 
 let originalImage = new Image();
 let imgX=0, imgY=0, scale=1;
@@ -63,6 +64,26 @@ const circleY=previewCanvas.height/2;
 const circleR=Math.min(previewCanvas.width, previewCanvas.height)/2-5;
 let currentImageData=null;
 
+// --- カメラ起動 ---
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+  } catch(e) {
+    alert("カメラ起動失敗: " + e.message);
+  }
+}
+startCamera();
+
+function captureImage() {
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = video.videoWidth;
+  tempCanvas.height = video.videoHeight;
+  const ctx = tempCanvas.getContext("2d");
+  ctx.drawImage(video, 0, 0);
+  loadPreview(tempCanvas.toDataURL("image/png"));
+}
+
 // --- アップロード ---
 uploadInput.onchange = e => {
   if(!e.target.files[0]) return;
@@ -71,15 +92,10 @@ uploadInput.onchange = e => {
   reader.readAsDataURL(e.target.files[0]);
 };
 
-// --- カメラ取得（簡易版、既存カメラを表示する場合は拡張可） ---
-function captureImage() {
-  alert("カメラ取得はここに実装してください（今回はアップロードでテスト可）");
-}
-
-// --- プレビュー ---
+// --- プレビュー表示 ---
 function loadPreview(dataURL){
   originalImage.src = dataURL;
-  originalImage.onload = ()=>{
+  originalImage.onload = ()=> {
     scale=1; imgX=0; imgY=0;
     drawPreview();
     previewDialog.style.display="flex";
@@ -89,6 +105,7 @@ function loadPreview(dataURL){
 
 function drawPreview(){
   previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
+
   // 円外暗く
   previewCtx.fillStyle='rgba(0,0,0,0.5)';
   previewCtx.fillRect(0,0,previewCanvas.width,previewCanvas.height);
@@ -131,7 +148,7 @@ function zoomAtCenter(delta){
 }
 previewCanvas.onwheel = e => { e.preventDefault(); zoomAtCenter(e.deltaY<0?1.1:0.9); };
 
-// --- タッチ ---
+// --- タッチ操作 ---
 let lastDist=0;
 previewCanvas.ontouchstart = e=>{
   if(e.touches.length===1){ isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY; }
@@ -162,7 +179,7 @@ function getDeviceId() {
   return id;
 }
 
-// --- 保存・サーバー送信 ---
+// --- 保存・サーバー送信（プレビュー反映済み） ---
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
 
@@ -177,11 +194,10 @@ function confirmSave(){
   ctx2.closePath();
   ctx2.clip();
 
-  // 元画像とプレビュー比率
+  // 元画像座標を正確に変換
   const scaleX = originalImage.width / previewCanvas.width;
   const scaleY = originalImage.height / previewCanvas.height;
 
-  // プレビューの imgX, imgY, scale を正確に元画像に反映
   const sx = -imgX * scaleX;
   const sy = -imgY * scaleY;
   const sw = previewCanvas.width * scale * scaleX;
@@ -189,7 +205,6 @@ function confirmSave(){
 
   ctx2.drawImage(originalImage, sx, sy, sw, sh, 0, 0, circleR*2, circleR*2);
 
-  // サーバー送信
   const sendData = cropCanvas.toDataURL("image/png");
   const deviceId = getDeviceId();
 
@@ -216,12 +231,6 @@ function confirmSave(){
     } else throw new Error(data.message||"サーバーエラー");
   }).catch(err=>{console.error(err); alert("送信失敗: "+err.message);});
 }
-
-
-
 </script>
 </body>
 </html>
-
-
-
