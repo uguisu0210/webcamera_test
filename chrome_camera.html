@@ -177,18 +177,19 @@ function confirmSave(){
   ctx2.closePath();
   ctx2.clip();
 
-  // 元画像座標を正確に変換
+  // 元画像とプレビュー比率
   const scaleX = originalImage.width / previewCanvas.width;
   const scaleY = originalImage.height / previewCanvas.height;
 
-  // プレビュー上の移動・拡大を元画像に変換
-  const sx = (0 - imgX) * scaleX;
-  const sy = (0 - imgY) * scaleY;
-  const sw = previewCanvas.width * scaleX * scale;
-  const sh = previewCanvas.height * scaleY * scale;
+  // プレビューの imgX, imgY, scale を正確に元画像に反映
+  const sx = -imgX * scaleX;
+  const sy = -imgY * scaleY;
+  const sw = previewCanvas.width * scale * scaleX;
+  const sh = previewCanvas.height * scale * scaleY;
 
   ctx2.drawImage(originalImage, sx, sy, sw, sh, 0, 0, circleR*2, circleR*2);
 
+  // サーバー送信
   const sendData = cropCanvas.toDataURL("image/png");
   const deviceId = getDeviceId();
 
@@ -217,8 +218,10 @@ function confirmSave(){
 }
 
 
+
 </script>
 </body>
 </html>
+
 
 
