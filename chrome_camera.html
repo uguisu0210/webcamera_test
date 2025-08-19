@@ -3,27 +3,27 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>固定円トリミング＋ピンク解析</title>
+<title>固定円トリミング＋ズーム＋ピンク解析</title>
 <style>
-  body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
-  #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16/9; background: black; }
-  video, canvas, #no-signal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-  video { object-fit: cover; }
-  #overlay { pointer-events: none; }
-  #no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
-  button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
-  #af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
-  #preview-dialog, #complete-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; background: rgba(0,0,0,0.5);}
-  #preview-box, #complete-dialog > div { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; }
-  #preview-canvas { border:1px solid #ccc; background:#eee; width:300px; height:300px; touch-action: none; cursor: grab; }
-  .preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
-  .save-btn { background: #4CAF50; color: white; }
-  .cancel-btn { background: #f44336; color: white; }
-  #complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
-  #saved-images { margin-top: 15px; display: flex; justify-content: center; }
-  #saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
-  #analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
-  #upload-input { margin-top:10px; }
+body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
+#camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16/9; background: black; }
+video, canvas, #no-signal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+video { object-fit: cover; }
+#overlay { pointer-events: none; }
+#no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
+button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
+#af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
+#preview-dialog, #complete-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; background: rgba(0,0,0,0.5);}
+#preview-box, #complete-dialog > div { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; }
+#preview-canvas { border:1px solid #ccc; background:#eee; width:300px; height:300px; touch-action: none; cursor: grab; }
+.preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
+.save-btn { background: #4CAF50; color: white; }
+.cancel-btn { background: #f44336; color: white; }
+#complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
+#saved-images { margin-top: 15px; display: flex; justify-content: center; }
+#saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
+#analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
+#upload-input { margin-top:10px; }
 </style>
 </head>
 <body>
@@ -41,7 +41,6 @@
 
 <div id="af-status">AF状態: 未確認</div>
 
-<!-- プレビュー -->
 <div id="preview-dialog">
   <div id="preview-box">
     <canvas id="preview-canvas" width="300" height="300"></canvas>
@@ -52,7 +51,6 @@
   </div>
 </div>
 
-<!-- 保存完了 -->
 <div id="complete-dialog">
   <div>
     <p>画像の保存が完了しました。</p>
@@ -84,8 +82,9 @@ const uploadInput = document.getElementById('upload-input');
 let isPaused=false, isStarted=false, savedStream=null, currentImageData=null;
 let originalImage = new Image();
 
-// 画像移動用
+// 画像移動・ズーム
 let imgX=0, imgY=0, startX=0, startY=0, isDragging=false;
+let scale=1;
 
 // 円固定
 const circleX=previewCanvas.width/2;
@@ -103,17 +102,8 @@ function getDeviceId() {
 }
 
 // --- カメラ操作 ---
-function resizeOverlay() {
-  overlay.width = overlay.offsetWidth;
-  overlay.height = overlay.offsetHeight;
-}
-function drawCenterCircle() {
-  ctx.clearRect(0,0,overlay.width,overlay.height);
-  const cx=overlay.width/2, cy=overlay.height/2, r=Math.min(overlay.width,overlay.height)/4;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r,0,Math.PI*2);
-  ctx.lineWidth=3; ctx.strokeStyle="black"; ctx.stroke();
-}
+function resizeOverlay() { overlay.width = overlay.offsetWidth; overlay.height = overlay.offsetHeight; }
+function drawCenterCircle() { ctx.clearRect(0,0,overlay.width,overlay.height); const cx=overlay.width/2, cy=overlay.height/2, r=Math.min(overlay.width,overlay.height)/4; ctx.beginPath(); ctx.arc(cx, cy, r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle="black"; ctx.stroke(); }
 function pauseCamera(){ if(video.srcObject&&!isPaused){ video.pause(); isPaused=true; afStatus.textContent="AF状態: 一時停止中"; controlBtn.textContent="再開"; } }
 function resumeCamera(){ if(savedStream&&isPaused){ video.play(); isPaused=false; afStatus.textContent="AF状態: 再開中"; controlBtn.textContent="静止"; } }
 async function startCamera(){
@@ -128,27 +118,16 @@ async function startCamera(){
   }catch(err){ noSignal.style.display="flex"; video.srcObject=null; afStatus.textContent="AF状態: 起動失敗"; alert('カメラ起動失敗: '+err.message); }
 }
 function toggleCamera(){ if(!isStarted) startCamera(); else if(!isPaused) pauseCamera(); else resumeCamera(); }
-function saveImage(){
-  if(!isStarted){ alert("カメラを開始してください"); return; }
-  const tempCanvas=document.createElement("canvas");
-  tempCanvas.width=video.videoWidth; tempCanvas.height=video.videoHeight;
-  tempCanvas.getContext("2d").drawImage(video,0,0,tempCanvas.width,tempCanvas.height);
-  loadPreview(tempCanvas.toDataURL("image/png"));
-}
+function saveImage(){ if(!isStarted){ alert("カメラを開始してください"); return; } const tempCanvas=document.createElement("canvas"); tempCanvas.width=video.videoWidth; tempCanvas.height=video.videoHeight; tempCanvas.getContext("2d").drawImage(video,0,0,tempCanvas.width,tempCanvas.height); loadPreview(tempCanvas.toDataURL("image/png")); }
 
 // --- アップロード ---
-uploadInput.onchange = e => {
-  if(!e.target.files[0]) return;
-  const reader=new FileReader();
-  reader.onload=ev=> loadPreview(ev.target.result);
-  reader.readAsDataURL(e.target.files[0]);
-};
+uploadInput.onchange = e => { if(!e.target.files[0]) return; const reader=new FileReader(); reader.onload=ev=> loadPreview(ev.target.result); reader.readAsDataURL(e.target.files[0]); };
 
 // --- プレビュー ---
 function loadPreview(dataURL){
   originalImage.src=dataURL;
   originalImage.onload=()=>{
-    imgX=0; imgY=0;
+    imgX=0; imgY=0; scale=1;
     drawPreview();
     previewDialog.style.display="flex";
     currentImageData=dataURL;
@@ -158,7 +137,11 @@ function loadPreview(dataURL){
 // --- プレビュー描画 ---
 function drawPreview(){
   previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
-  previewCtx.drawImage(originalImage,imgX,imgY,previewCanvas.width,previewCanvas.height);
+  previewCtx.save();
+  previewCtx.translate(imgX,imgY);
+  previewCtx.scale(scale,scale);
+  previewCtx.drawImage(originalImage,0,0,previewCanvas.width,previewCanvas.height);
+  previewCtx.restore();
   // 固定円
   previewCtx.strokeStyle="red"; previewCtx.lineWidth=2;
   previewCtx.beginPath();
@@ -167,39 +150,45 @@ function drawPreview(){
 }
 
 // --- 画像ドラッグ ---
-previewCanvas.onmousedown=e=>{
-  isDragging=true;
-  startX=e.clientX; startY=e.clientY;
-};
-previewCanvas.onmousemove=e=>{
-  if(!isDragging) return;
-  const dx=e.clientX-startX;
-  const dy=e.clientY-startY;
-  imgX+=dx; imgY+=dy;
-  startX=e.clientX; startY=e.clientY;
+previewCanvas.onmousedown=e=>{ isDragging=true; startX=e.clientX; startY=e.clientY; };
+previewCanvas.onmousemove=e=>{ if(!isDragging) return; let dx=e.clientX-startX, dy=e.clientY-startY; imgX+=dx; imgY+=dy; startX=e.clientX; startY=e.clientY; drawPreview(); };
+previewCanvas.onmouseup=e=>{ isDragging=false; };
+previewCanvas.onmouseleave=e=>{ isDragging=false; };
+
+// --- ズーム (マウスホイール) ---
+previewCanvas.onwheel=e=>{
+  e.preventDefault();
+  const delta=e.deltaY<0?1.1:0.9;
+  scale*=delta;
   drawPreview();
 };
-previewCanvas.onmouseup=e=>{isDragging=false;};
 
-// タッチ
+// --- タッチ操作 ---
+let lastDist=0;
 previewCanvas.ontouchstart=e=>{
-  e.preventDefault();
-  if(e.touches.length!==1) return;
-  isDragging=true;
-  startX=e.touches[0].clientX;
-  startY=e.touches[0].clientY;
+  if(e.touches.length===1){
+    isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+  } else if(e.touches.length===2){
+    isDragging=false;
+    lastDist=getTouchDistance(e.touches[0], e.touches[1]);
+  }
 };
 previewCanvas.ontouchmove=e=>{
   e.preventDefault();
-  if(!isDragging||e.touches.length!==1) return;
-  const dx=e.touches[0].clientX-startX;
-  const dy=e.touches[0].clientY-startY;
-  imgX+=dx; imgY+=dy;
-  startX=e.touches[0].clientX;
-  startY=e.touches[0].clientY;
-  drawPreview();
+  if(e.touches.length===1 && isDragging){
+    let dx=e.touches[0].clientX-startX, dy=e.touches[0].clientY-startY;
+    imgX+=dx; imgY+=dy; startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+    drawPreview();
+  } else if(e.touches.length===2){
+    let dist=getTouchDistance(e.touches[0], e.touches[1]);
+    let delta=dist/lastDist;
+    scale*=delta;
+    lastDist=dist;
+    drawPreview();
+  }
 };
-previewCanvas.ontouchend=e=>{isDragging=false;};
+previewCanvas.ontouchend=e=>{ if(e.touches.length<2) lastDist=0; if(e.touches.length===0) isDragging=false; };
+function getTouchDistance(t1,t2){ return Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY); }
 
 // --- プレビュー閉じる ---
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
@@ -207,35 +196,20 @@ function closePreview(){ previewDialog.style.display="none"; currentImageData=nu
 // --- 保存 ---
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
-
   const cropCanvas=document.createElement("canvas");
-  cropCanvas.width=circleR*2;
-  cropCanvas.height=circleR*2;
+  cropCanvas.width=circleR*2; cropCanvas.height=circleR*2;
   const ctx2=cropCanvas.getContext("2d");
-
-  // 円形クリッピング
-  ctx2.beginPath();
-  ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
-  ctx2.closePath();
-  ctx2.clip();
-
-  ctx2.drawImage(
-    originalImage,
-    -imgX + circleX - circleR,
-    -imgY + circleY - circleR,
-    previewCanvas.width,
-    previewCanvas.height,
+  ctx2.beginPath(); ctx2.arc(circleR,circleR,circleR,0,Math.PI*2); ctx2.closePath(); ctx2.clip();
+  ctx2.drawImage(originalImage,
+    (-imgX + circleX - circleR)/scale,
+    (-imgY + circleY - circleR)/scale,
+    previewCanvas.width/scale,
+    previewCanvas.height/scale,
     0,0,circleR*2,circleR*2
   );
-
   const sendData=cropCanvas.toDataURL("image/png");
-
   const deviceId=getDeviceId();
-  fetch("https://2cadc5a37ebd.ngrok-free.app/upload",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({image:sendData, device_id:deviceId})
-  })
+  fetch("https://2cadc5a37ebd.ngrok-free.app/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:sendData, device_id:deviceId})})
   .then(async res=>{
     if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`);}
     return res.json();
@@ -266,6 +240,5 @@ function confirmSave(){
 
 window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCenterCircle(); } });
 </script>
-
 </body>
 </html>
