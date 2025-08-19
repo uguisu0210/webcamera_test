@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>固定円トリミング＋ズーム＋ピンク解析</title>
+<title>固定円トリミング＋円内制限＋ズーム＋ピンク解析</title>
 <style>
 body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
 #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16/9; background: black; }
@@ -94,10 +94,7 @@ const circleR=Math.min(previewCanvas.width, previewCanvas.height)/2-5;
 // --- 端末ID ---
 function getDeviceId() {
   let id = localStorage.getItem("device_id");
-  if (!id) {
-    id = "device_" + Math.random().toString(36).slice(2);
-    localStorage.setItem("device_id", id);
-  }
+  if (!id) { id = "device_" + Math.random().toString(36).slice(2); localStorage.setItem("device_id", id); }
   return id;
 }
 
@@ -127,7 +124,8 @@ uploadInput.onchange = e => { if(!e.target.files[0]) return; const reader=new Fi
 function loadPreview(dataURL){
   originalImage.src=dataURL;
   originalImage.onload=()=>{
-    imgX=0; imgY=0; scale=1;
+    scale=1; imgX=0; imgY=0;
+    clampScale(); clampPosition();
     drawPreview();
     previewDialog.style.display="flex";
     currentImageData=dataURL;
@@ -136,17 +134,34 @@ function loadPreview(dataURL){
 
 // --- プレビュー描画 ---
 function drawPreview(){
+  clampScale();
+  clampPosition();
   previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
   previewCtx.save();
   previewCtx.translate(imgX,imgY);
   previewCtx.scale(scale,scale);
   previewCtx.drawImage(originalImage,0,0,previewCanvas.width,previewCanvas.height);
   previewCtx.restore();
-  // 固定円
   previewCtx.strokeStyle="red"; previewCtx.lineWidth=2;
-  previewCtx.beginPath();
-  previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2);
-  previewCtx.stroke();
+  previewCtx.beginPath(); previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2); previewCtx.stroke();
+}
+
+// --- 画像制限 ---
+function clampScale(){
+  const minScale=Math.max((circleR*2)/previewCanvas.width,(circleR*2)/previewCanvas.height);
+  if(scale<minScale) scale=minScale;
+}
+function clampPosition(){
+  const left=circleX-circleR;
+  const top=circleY-circleR;
+  const right=circleX+circleR;
+  const bottom=circleY+circleR;
+  const scaledW=previewCanvas.width*scale;
+  const scaledH=previewCanvas.height*scale;
+  if(imgX>left) imgX=left;
+  if(imgY>top) imgY=top;
+  if(imgX+scaledW<right) imgX=right-scaledW;
+  if(imgY+scaledH<bottom) imgY=bottom-scaledH;
 }
 
 // --- 画像ドラッグ ---
@@ -155,23 +170,14 @@ previewCanvas.onmousemove=e=>{ if(!isDragging) return; let dx=e.clientX-startX, 
 previewCanvas.onmouseup=e=>{ isDragging=false; };
 previewCanvas.onmouseleave=e=>{ isDragging=false; };
 
-// --- ズーム (マウスホイール) ---
-previewCanvas.onwheel=e=>{
-  e.preventDefault();
-  const delta=e.deltaY<0?1.1:0.9;
-  scale*=delta;
-  drawPreview();
-};
+// --- ズーム ---
+previewCanvas.onwheel=e=>{ e.preventDefault(); const delta=e.deltaY<0?1.1:0.9; scale*=delta; drawPreview(); };
 
-// --- タッチ操作 ---
+// --- タッチ ---
 let lastDist=0;
 previewCanvas.ontouchstart=e=>{
-  if(e.touches.length===1){
-    isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY;
-  } else if(e.touches.length===2){
-    isDragging=false;
-    lastDist=getTouchDistance(e.touches[0], e.touches[1]);
-  }
+  if(e.touches.length===1){ isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY; }
+  else if(e.touches.length===2){ isDragging=false; lastDist=getTouchDistance(e.touches[0], e.touches[1]); }
 };
 previewCanvas.ontouchmove=e=>{
   e.preventDefault();
@@ -190,7 +196,7 @@ previewCanvas.ontouchmove=e=>{
 previewCanvas.ontouchend=e=>{ if(e.touches.length<2) lastDist=0; if(e.touches.length===0) isDragging=false; };
 function getTouchDistance(t1,t2){ return Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY); }
 
-// --- プレビュー閉じる ---
+// --- 閉じる ---
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
 
 // --- 保存 ---
