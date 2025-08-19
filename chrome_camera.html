@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>固定円トリミング＋円内制限＋ズーム＋ピンク解析</title>
+<title>固定円トリミング＋円内切り取り＋ズーム＋ピンク解析</title>
 <style>
 body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
 #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16/9; background: black; }
@@ -137,13 +137,26 @@ function drawPreview(){
   clampScale();
   clampPosition();
   previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
+
+  // 半透明で円外を暗く
+  previewCtx.fillStyle='rgba(0,0,0,0.5)';
+  previewCtx.fillRect(0,0,previewCanvas.width,previewCanvas.height);
+
   previewCtx.save();
-  previewCtx.translate(imgX,imgY);
-  previewCtx.scale(scale,scale);
-  previewCtx.drawImage(originalImage,0,0,previewCanvas.width,previewCanvas.height);
+  previewCtx.beginPath();
+  previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2);
+  previewCtx.closePath();
+  previewCtx.clip();
+
+  // 画像描画
+  previewCtx.drawImage(originalImage,imgX,imgY,previewCanvas.width*scale,previewCanvas.height*scale);
   previewCtx.restore();
+
+  // 円枠
   previewCtx.strokeStyle="red"; previewCtx.lineWidth=2;
-  previewCtx.beginPath(); previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2); previewCtx.stroke();
+  previewCtx.beginPath();
+  previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2);
+  previewCtx.stroke();
 }
 
 // --- 画像制限 ---
@@ -202,10 +215,19 @@ function closePreview(){ previewDialog.style.display="none"; currentImageData=nu
 // --- 保存 ---
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
+
   const cropCanvas=document.createElement("canvas");
-  cropCanvas.width=circleR*2; cropCanvas.height=circleR*2;
+  cropCanvas.width=circleR*2;
+  cropCanvas.height=circleR*2;
   const ctx2=cropCanvas.getContext("2d");
-  ctx2.beginPath(); ctx2.arc(circleR,circleR,circleR,0,Math.PI*2); ctx2.closePath(); ctx2.clip();
+  ctx2.clearRect(0,0,circleR*2,circleR*2);
+
+  // 円内クリップ
+  ctx2.beginPath();
+  ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
+  ctx2.closePath();
+  ctx2.clip();
+
   ctx2.drawImage(originalImage,
     (-imgX + circleX - circleR)/scale,
     (-imgY + circleY - circleR)/scale,
@@ -213,9 +235,15 @@ function confirmSave(){
     previewCanvas.height/scale,
     0,0,circleR*2,circleR*2
   );
+
   const sendData=cropCanvas.toDataURL("image/png");
   const deviceId=getDeviceId();
-  fetch("https://2cadc5a37ebd.ngrok-free.app/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:sendData, device_id:deviceId})})
+
+  fetch("https://2cadc5a37ebd.ngrok-free.app/upload",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({image:sendData, device_id:deviceId})
+  })
   .then(async res=>{
     if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`);}
     return res.json();
@@ -226,7 +254,6 @@ function confirmSave(){
       const completeDialog=document.getElementById("complete-dialog");
       completeDialog.style.display="flex";
       const completeBtn=document.getElementById("complete-btn");
-      completeBtn.onclick=null;
       completeBtn.onclick=()=>{
         completeDialog.style.display="none";
         savedImages.innerHTML="";
