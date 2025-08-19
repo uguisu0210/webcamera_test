@@ -175,16 +175,39 @@ function closePreview(){ previewDialog.style.display="none"; currentImageData=nu
 // --- 保存・サーバー送信 ---
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
-  const cropCanvas=document.createElement("canvas");
-  cropCanvas.width=circleR*2; cropCanvas.height=circleR*2;
-  const ctx2=cropCanvas.getContext("2d");
+
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = previewCanvas.width;
+  cropCanvas.height = previewCanvas.height;
+  const ctx2 = cropCanvas.getContext("2d");
+
+  // 透明背景
   ctx2.clearRect(0,0,cropCanvas.width,cropCanvas.height);
-  ctx2.beginPath(); ctx2.arc(circleR,circleR,circleR,0,Math.PI*2); ctx2.closePath(); ctx2.clip();
-  ctx2.drawImage(originalImage,(-imgX+circleX-circleR)/scale,(-imgY+circleY-circleR)/scale,previewCanvas.width/scale,previewCanvas.height/scale,0,0,circleR*2,circleR*2);
-  const sendData=cropCanvas.toDataURL("image/png");
-  const deviceId=getDeviceId();
-  fetch("https://78596d55379b.ngrok-free.app/upload",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({image:sendData, device_id:deviceId})})
-  .then(async res=>{ if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`); } return res.json(); })
+
+  // 円マスク
+  ctx2.beginPath();
+  ctx2.arc(circleX, circleY, circleR, 0, Math.PI*2);
+  ctx2.closePath();
+  ctx2.clip();
+
+  // プレビューと同じ位置・スケールで描画
+  ctx2.drawImage(originalImage, imgX, imgY, previewCanvas.width*scale, previewCanvas.height*scale);
+
+  const sendData = cropCanvas.toDataURL("image/png");
+  const deviceId = getDeviceId();
+
+  fetch("https://78596d55379b.ngrok-free.app/upload",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({image:sendData, device_id:deviceId})
+  })
+  .then(async res=>{
+    if(!res.ok){
+      const errData = await res.json().catch(()=>({}));
+      throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`);
+    }
+    return res.json();
+  })
   .then(data=>{
     if(data.status==="ok"){
       previewDialog.style.display="none";
@@ -203,8 +226,10 @@ function confirmSave(){
   }).catch(err=>{ console.error(err); alert("送信失敗: "+err.message); });
 }
 
+
 window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCenterCircle(); } });
 </script>
 
 </body>
 </html>
+
