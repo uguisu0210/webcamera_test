@@ -219,7 +219,10 @@ function confirmSave(){
         const img=document.createElement("img");
         img.src=sendData;
         savedImages.appendChild(img);
-        analysisResult.innerHTML=`濃淡スコア: ${data.pink_avg.shade_score} (${data.pink_avg.shade_level})`;
+        const score = data.pink_avg.shade_score;
+        const level = data.pink_avg.shade_level;
+        const message = score <= 60 ? "少ない" : "OK";
+        analysisResult.innerHTML = `濃淡スコア: ${score} (${level}) → ${message}`;
         currentImageData=null;
       };
     } else throw new Error(data.message||"サーバーエラー");
@@ -232,5 +235,6 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCente
 
 </body>
 </html>
+
 
 
