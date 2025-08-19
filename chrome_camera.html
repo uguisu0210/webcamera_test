@@ -19,25 +19,33 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
   display: none;
   position: fixed;
   top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  align-items: center;
-  justify-content: center; /* 横中央固定 */
+  left:0;/* プレビュー画面 */
+#preview-dialog {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  align-items: center;       /* 垂直方向中央 */
+  justify-content: center;   /* 水平方向中央 */
   z-index: 9999;
   background: rgba(0,0,0,0.5);
 }
+
 #preview-box {
   background: #fff;
   padding: 15px;
   border-radius: 10px;
   text-align: center;
-  max-width: 90%;
+  max-width: 90%;           /* 画面幅の90%まで */
+  width: 300px;             /* 最小幅を固定したい場合 */
   display: flex;
   flex-direction: column;
-  align-items: center;
-  margin: 0; /* 親の中央配置に依存 */
+  align-items: center;       /* 内部要素も中央揃え */
+  box-sizing: border-box;
 }
+
 
 #preview-canvas {
   border:1px solid #ccc;
@@ -269,4 +277,5 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCente
 </script>
 </body>
 </html>
+
 
