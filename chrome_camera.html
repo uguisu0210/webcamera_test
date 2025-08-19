@@ -258,15 +258,18 @@ function confirmSave() {
   ctx2.clip();
 
   // プレビューの位置・スケールを反映して描画
-  ctx2.drawImage(
-    originalImage,
-    (-imgX + circleX - circleR) / scale,
-    (-imgY + circleY - circleR) / scale,
-    previewCanvas.width / scale,
-    previewCanvas.height / scale,
-    0, 0,
-    circleR * 2, circleR * 2
-  );
+ ctx2.drawImage(
+  originalImage,
+  (circleX - circleR - imgX) / scale,
+  (circleY - circleR - imgY) / scale,
+  (circleR * 2) / scale,
+  (circleR * 2) / scale,
+  0,
+  0,
+  circleR * 2,
+  circleR * 2
+);
+
 
   // PNG データを取得（透過維持）
   const sendData = cropCanvas.toDataURL("image/png");
@@ -316,4 +319,5 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCente
 </script>
 </body>
 </html>
+
 
