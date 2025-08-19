@@ -239,67 +239,81 @@ function getTouchDistance(t1,t2){ return Math.hypot(t2.clientX-t1.clientX, t2.cl
 // --- 閉じる ---
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
 
-// --- 保存 ---
-function confirmSave(){
-  if(!currentImageData){ alert("保存画像がありません"); return; }
+function confirmSave() {
+  if (!currentImageData) { alert("保存画像がありません"); return; }
 
-  const cropCanvas=document.createElement("canvas");
-  cropCanvas.width=circleR*2;
-  cropCanvas.height=circleR*2;
-  const ctx2=cropCanvas.getContext("2d");
-  ctx2.clearRect(0,0,circleR*2,circleR*2);
+  // クロップ用キャンバス（円の直径サイズ）
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = circleR * 2;
+  cropCanvas.height = circleR * 2;
+  const ctx2 = cropCanvas.getContext("2d");
+
+  // まず全体を透明にする
+  ctx2.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 
   // 円内クリップ
   ctx2.beginPath();
-  ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
+  ctx2.arc(circleR, circleR, circleR, 0, Math.PI * 2);
   ctx2.closePath();
   ctx2.clip();
 
-  ctx2.drawImage(originalImage,
-    (-imgX + circleX - circleR)/scale,
-    (-imgY + circleY - circleR)/scale,
-    previewCanvas.width/scale,
-    previewCanvas.height/scale,
-    0,0,circleR*2,circleR*2
+  // プレビューの位置・スケールを反映して描画
+  ctx2.drawImage(
+    originalImage,
+    (-imgX + circleX - circleR) / scale,
+    (-imgY + circleY - circleR) / scale,
+    previewCanvas.width / scale,
+    previewCanvas.height / scale,
+    0, 0,
+    circleR * 2, circleR * 2
   );
 
-  const sendData=cropCanvas.toDataURL("image/png");
-  const deviceId=getDeviceId();
+  // PNG データを取得（透過維持）
+  const sendData = cropCanvas.toDataURL("image/png");
+  const deviceId = getDeviceId();
 
-  // --- サーバー送信 ---
-  fetch("https://78596d55379b.ngrok-free.app/upload",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({image:sendData, device_id:deviceId})
+  // サーバー送信
+  fetch("https://78596d55379b.ngrok-free.app/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: sendData, device_id: deviceId })
   })
-  .then(async res=>{
-    if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`);}
+  .then(async res => {
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(`HTTP ${res.status}: ${errData.message || "不明なエラー"}`);
+    }
     return res.json();
   })
-  .then(data=>{
-    if(data.status==="ok"){
-      previewDialog.style.display="none";
-      const completeDialog=document.getElementById("complete-dialog");
-      completeDialog.style.display="flex";
-      const completeBtn=document.getElementById("complete-btn");
-      completeBtn.onclick=()=>{
-        completeDialog.style.display="none";
-        savedImages.innerHTML="";
-        const img=document.createElement("img"); img.src=sendData; savedImages.appendChild(img);
-        analysisResult.innerHTML=`
+  .then(data => {
+    if (data.status === "ok") {
+      previewDialog.style.display = "none";
+      const completeDialog = document.getElementById("complete-dialog");
+      completeDialog.style.display = "flex";
+
+      const completeBtn = document.getElementById("complete-btn");
+      completeBtn.onclick = () => {
+        completeDialog.style.display = "none";
+        savedImages.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = sendData;
+        savedImages.appendChild(img);
+
+        analysisResult.innerHTML = `
           平均RGB: ${data.pink_avg.avg_rgb}<br>
           HEX: ${data.pink_avg.hex}<br>
-          濃淡スコア: ${data.pink_avg.shade_score} ( ${data.pink_avg.shade_level} )<br>
+          濃淡スコア: ${data.pink_avg.shade_score} (${data.pink_avg.shade_level})<br>
           平均S: ${data.pink_avg.avg_S.toFixed(1)}, 平均V: ${data.pink_avg.avg_V.toFixed(1)}
         `;
-        currentImageData=null;
+        currentImageData = null;
       };
-    }else throw new Error(data.message||"サーバーエラー");
+    } else throw new Error(data.message || "サーバーエラー");
   })
-  .catch(err=>{ console.error(err); alert("送信失敗: "+err.message); });
+  .catch(err => { console.error(err); alert("送信失敗: " + err.message); });
 }
 
 window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCenterCircle(); } });
 </script>
 </body>
 </html>
+
