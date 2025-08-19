@@ -91,7 +91,7 @@ const circleX=previewCanvas.width/2;
 const circleY=previewCanvas.height/2;
 const circleR=Math.min(previewCanvas.width, previewCanvas.height)/2-5;
 
-// --- デバイスID ---
+// --- 端末ID ---
 function getDeviceId() {
   let id = localStorage.getItem("device_id");
   if (!id) { id = "device_" + Math.random().toString(36).slice(2); localStorage.setItem("device_id", id); }
@@ -138,7 +138,6 @@ function drawPreview(){
   clampPosition();
   previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
 
-  // 半透明で円外を暗く
   previewCtx.fillStyle='rgba(0,0,0,0.5)';
   previewCtx.fillRect(0,0,previewCanvas.width,previewCanvas.height);
 
@@ -148,18 +147,16 @@ function drawPreview(){
   previewCtx.closePath();
   previewCtx.clip();
 
-  // 画像描画
   previewCtx.drawImage(originalImage,imgX,imgY,previewCanvas.width*scale,previewCanvas.height*scale);
   previewCtx.restore();
 
-  // 円枠
   previewCtx.strokeStyle="red"; previewCtx.lineWidth=2;
   previewCtx.beginPath();
   previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2);
   previewCtx.stroke();
 }
 
-// --- 制限 ---
+// --- 画像制限 ---
 function clampScale(){
   const minScale=Math.max((circleR*2)/previewCanvas.width,(circleR*2)/previewCanvas.height);
   if(scale<minScale) scale=minScale;
@@ -177,20 +174,14 @@ function clampPosition(){
   if(imgY+scaledH<bottom) imgY=bottom-scaledH;
 }
 
-// --- 画像ドラッグ ---
-previewCanvas.onmousedown=e=>{ isDragging=true; startX=e.clientX; startY=e.clientY; };
-previewCanvas.onmousemove=e=>{ if(!isDragging) return; let dx=e.clientX-startX, dy=e.clientY-startY; imgX+=dx; imgY+=dy; startX=e.clientX; startY=e.clientY; drawPreview(); };
-previewCanvas.onmouseup=e=>{ isDragging=false; };
-previewCanvas.onmouseleave=e=>{ isDragging=false; };
-
-// --- ズーム ---
-previewCanvas.onwheel=e=>{ e.preventDefault(); const delta=e.deltaY<0?1.1:0.9; scale*=delta; drawPreview(); };
-
-// --- タッチ ---
+// --- タッチ操作 ---
 let lastDist=0;
 previewCanvas.ontouchstart=e=>{
-  if(e.touches.length===1){ isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY; }
-  else if(e.touches.length===2){ isDragging=false; lastDist=getTouchDistance(e.touches[0], e.touches[1]); }
+  if(e.touches.length===1){
+    isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+  } else if(e.touches.length===2){
+    isDragging=false; lastDist=getTouchDistance(e.touches[0], e.touches[1]);
+  }
 };
 previewCanvas.ontouchmove=e=>{
   e.preventDefault();
@@ -201,8 +192,18 @@ previewCanvas.ontouchmove=e=>{
   } else if(e.touches.length===2){
     let dist=getTouchDistance(e.touches[0], e.touches[1]);
     let delta=dist/lastDist;
-    scale*=delta;
     lastDist=dist;
+
+    // --- 円中心基準でズーム ---
+    const prevScale=scale;
+    scale*=delta;
+
+    // 中心の補正
+    const offsetX=(circleX-imgX)/prevScale;
+    const offsetY=(circleY-imgY)/prevScale;
+    imgX=circleX-offsetX*scale;
+    imgY=circleY-offsetY*scale;
+
     drawPreview();
   }
 };
@@ -222,19 +223,16 @@ function confirmSave(){
   const ctx2=cropCanvas.getContext("2d");
   ctx2.clearRect(0,0,circleR*2,circleR*2);
 
-  // 円内クリップ
   ctx2.beginPath();
   ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
   ctx2.closePath();
   ctx2.clip();
 
-  // ★ 修正: 画像のズーム・移動を反映して切り取り
-  ctx2.drawImage(
-    originalImage,
-    (circleX - imgX - circleR)/scale,
-    (circleY - imgY - circleR)/scale,
-    (circleR*2)/scale,
-    (circleR*2)/scale,
+  ctx2.drawImage(originalImage,
+    (-imgX + circleX - circleR)/scale,
+    (-imgY + circleY - circleR)/scale,
+    previewCanvas.width/scale,
+    previewCanvas.height/scale,
     0,0,circleR*2,circleR*2
   );
 
