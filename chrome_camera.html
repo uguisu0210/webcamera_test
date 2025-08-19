@@ -240,7 +240,10 @@ function getTouchDistance(t1,t2){ return Math.hypot(t2.clientX-t1.clientX, t2.cl
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
 
 function confirmSave() {
-  if (!currentImageData) { alert("保存画像がありません"); return; }
+  if (!currentImageData) { 
+    alert("保存画像がありません"); 
+    return; 
+  }
 
   // クロップ用キャンバス（円の直径サイズ）
   const cropCanvas = document.createElement("canvas");
@@ -248,7 +251,7 @@ function confirmSave() {
   cropCanvas.height = circleR * 2;
   const ctx2 = cropCanvas.getContext("2d");
 
-  // まず全体を透明にする
+  // 全体を透明に
   ctx2.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 
   // 円内クリップ
@@ -257,21 +260,29 @@ function confirmSave() {
   ctx2.closePath();
   ctx2.clip();
 
-  // プレビューの位置・スケールを反映して描画
- ctx2.drawImage(
-  originalImage,
-  (circleX - circleR - imgX) / scale,
-  (circleY - circleR - imgY) / scale,
-  (circleR * 2) / scale,
-  (circleR * 2) / scale,
-  0,
-  0,
-  circleR * 2,
-  circleR * 2
-);
+  // 元画像の切り取り座標を計算
+  // circleX/Y: プレビュー上の円中心
+  // imgX/imgY: プレビュー上の画像左上座標
+  // scale: プレビューでの拡大率
+  const sx = (circleX - circleR - imgX) / scale;
+  const sy = (circleY - circleR - imgY) / scale;
+  const sw = (circleR * 2) / scale;
+  const sh = (circleR * 2) / scale;
 
+  // 元画像から切り取り、円内に描画
+  ctx2.drawImage(
+    originalImage,
+    sx,
+    sy,
+    sw,
+    sh,
+    0,
+    0,
+    circleR * 2,
+    circleR * 2
+  );
 
-  // PNG データを取得（透過維持）
+  // PNG データ取得（透過維持）
   const sendData = cropCanvas.toDataURL("image/png");
   const deviceId = getDeviceId();
 
@@ -315,9 +326,11 @@ function confirmSave() {
   .catch(err => { console.error(err); alert("送信失敗: " + err.message); });
 }
 
+
 window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCenterCircle(); } });
 </script>
 </body>
 </html>
+
 
 
