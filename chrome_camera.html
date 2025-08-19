@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>カメラ＋アップロード＋トリミング＋ピンク解析</title>
+<title>固定円トリミング＋ピンク解析</title>
 <style>
   body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
   #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16/9; background: black; }
@@ -13,9 +13,9 @@
   #no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
   button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
   #af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
-  #preview-dialog, #complete-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; }
+  #preview-dialog, #complete-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; background: rgba(0,0,0,0.5);}
   #preview-box, #complete-dialog > div { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; }
-  #preview-canvas { border:1px solid #ccc; background:#eee; width:300px; height:300px; touch-action: none; }
+  #preview-canvas { border:1px solid #ccc; background:#eee; width:300px; height:300px; touch-action: none; cursor: grab; }
   .preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
   .save-btn { background: #4CAF50; color: white; }
   .cancel-btn { background: #f44336; color: white; }
@@ -41,10 +41,10 @@
 
 <div id="af-status">AF状態: 未確認</div>
 
-<!-- 撮影／アップロード画像プレビュー -->
+<!-- プレビュー -->
 <div id="preview-dialog">
   <div id="preview-box">
-    <canvas id="preview-canvas"></canvas>
+    <canvas id="preview-canvas" width="300" height="300"></canvas>
     <div>
       <button class="preview-btn save-btn" onclick="confirmSave()">保存する</button>
       <button class="preview-btn cancel-btn" onclick="closePreview()">キャンセル</button>
@@ -52,7 +52,7 @@
   </div>
 </div>
 
-<!-- 保存完了ダイアログ -->
+<!-- 保存完了 -->
 <div id="complete-dialog">
   <div>
     <p>画像の保存が完了しました。</p>
@@ -62,17 +62,16 @@
 
 <h3>最新画像</h3>
 <div id="saved-images"></div>
-
 <h3>解析結果</h3>
 <div id="analysis-result"></div>
 
 <script>
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
 const noSignal = document.getElementById('no-signal');
 const afStatus = document.getElementById('af-status');
 const controlBtn = document.getElementById('control-btn');
-const ctx = overlay.getContext('2d');
 
 const previewDialog = document.getElementById('preview-dialog');
 const previewCanvas = document.getElementById('preview-canvas');
@@ -85,8 +84,13 @@ const uploadInput = document.getElementById('upload-input');
 let isPaused=false, isStarted=false, savedStream=null, currentImageData=null;
 let originalImage = new Image();
 
-// 円形トリミング操作用
-let isDragging=false, startX=0, startY=0, radius=0;
+// 画像移動用
+let imgX=0, imgY=0, startX=0, startY=0, isDragging=false;
+
+// 円固定
+const circleX=previewCanvas.width/2;
+const circleY=previewCanvas.height/2;
+const circleR=Math.min(previewCanvas.width, previewCanvas.height)/2-5;
 
 // --- 端末ID ---
 function getDeviceId() {
@@ -132,7 +136,7 @@ function saveImage(){
   loadPreview(tempCanvas.toDataURL("image/png"));
 }
 
-// --- アップロード処理 ---
+// --- アップロード ---
 uploadInput.onchange = e => {
   if(!e.target.files[0]) return;
   const reader=new FileReader();
@@ -140,101 +144,100 @@ uploadInput.onchange = e => {
   reader.readAsDataURL(e.target.files[0]);
 };
 
-// --- プレビューとトリミング ---
+// --- プレビュー ---
 function loadPreview(dataURL){
   originalImage.src=dataURL;
   originalImage.onload=()=>{
-    previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
-    previewCtx.drawImage(originalImage,0,0,previewCanvas.width,previewCanvas.height);
+    imgX=0; imgY=0;
+    drawPreview();
     previewDialog.style.display="flex";
     currentImageData=dataURL;
   };
 }
 
-// --- 円形選択（マウス操作） ---
+// --- プレビュー描画 ---
+function drawPreview(){
+  previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
+  previewCtx.drawImage(originalImage,imgX,imgY,previewCanvas.width,previewCanvas.height);
+  // 固定円
+  previewCtx.strokeStyle="red"; previewCtx.lineWidth=2;
+  previewCtx.beginPath();
+  previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2);
+  previewCtx.stroke();
+}
+
+// --- 画像ドラッグ ---
 previewCanvas.onmousedown=e=>{
   isDragging=true;
-  startX=e.offsetX;
-  startY=e.offsetY;
+  startX=e.clientX; startY=e.clientY;
 };
 previewCanvas.onmousemove=e=>{
   if(!isDragging) return;
-  const dx=e.offsetX-startX;
-  const dy=e.offsetY-startY;
-  radius=Math.sqrt(dx*dx+dy*dy);
-  drawCircle();
+  const dx=e.clientX-startX;
+  const dy=e.clientY-startY;
+  imgX+=dx; imgY+=dy;
+  startX=e.clientX; startY=e.clientY;
+  drawPreview();
 };
-previewCanvas.onmouseup=e=>{
-  isDragging=false;
-};
+previewCanvas.onmouseup=e=>{isDragging=false;};
 
-// --- タッチ操作 ---
+// タッチ
 previewCanvas.ontouchstart=e=>{
   e.preventDefault();
   if(e.touches.length!==1) return;
-  const rect=previewCanvas.getBoundingClientRect();
-  startX=e.touches[0].clientX-rect.left;
-  startY=e.touches[0].clientY-rect.top;
   isDragging=true;
+  startX=e.touches[0].clientX;
+  startY=e.touches[0].clientY;
 };
 previewCanvas.ontouchmove=e=>{
   e.preventDefault();
   if(!isDragging||e.touches.length!==1) return;
-  const rect=previewCanvas.getBoundingClientRect();
-  const dx=e.touches[0].clientX-rect.left-startX;
-  const dy=e.touches[0].clientY-rect.top-startY;
-  radius=Math.sqrt(dx*dx+dy*dy);
-  drawCircle();
+  const dx=e.touches[0].clientX-startX;
+  const dy=e.touches[0].clientY-startY;
+  imgX+=dx; imgY+=dy;
+  startX=e.touches[0].clientX;
+  startY=e.touches[0].clientY;
+  drawPreview();
 };
 previewCanvas.ontouchend=e=>{isDragging=false;};
-
-// --- 円形選択描画 ---
-function drawCircle(){
-  previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
-  previewCtx.drawImage(originalImage,0,0,previewCanvas.width,previewCanvas.height);
-  previewCtx.strokeStyle="red"; 
-  previewCtx.lineWidth=2;
-  previewCtx.beginPath();
-  previewCtx.arc(startX,startY,radius,0,Math.PI*2);
-  previewCtx.stroke();
-}
 
 // --- プレビュー閉じる ---
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
 
-// --- 送信 ---
+// --- 保存 ---
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
-  if(radius===0){ alert("切り取り範囲を選択してください"); return; }
 
   const cropCanvas=document.createElement("canvas");
-  cropCanvas.width=radius*2;
-  cropCanvas.height=radius*2;
+  cropCanvas.width=circleR*2;
+  cropCanvas.height=circleR*2;
   const ctx2=cropCanvas.getContext("2d");
 
   // 円形クリッピング
   ctx2.beginPath();
-  ctx2.arc(radius,radius,radius,0,Math.PI*2);
+  ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
   ctx2.closePath();
   ctx2.clip();
 
-  // 元画像から選択範囲を切り抜き
   ctx2.drawImage(
-    previewCanvas,
-    startX-radius, startY-radius, radius*2, radius*2,
-    0, 0, radius*2, radius*2
+    originalImage,
+    -imgX + circleX - circleR,
+    -imgY + circleY - circleR,
+    previewCanvas.width,
+    previewCanvas.height,
+    0,0,circleR*2,circleR*2
   );
 
   const sendData=cropCanvas.toDataURL("image/png");
 
   const deviceId=getDeviceId();
-  fetch("https://866797d83d83.ngrok-free.app/upload",{
+  fetch("https://2cadc5a37ebd.ngrok-free.app/upload",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({image:sendData, device_id:deviceId})
   })
   .then(async res=>{
-    if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`); }
+    if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`);}
     return res.json();
   })
   .then(data=>{
@@ -246,12 +249,8 @@ function confirmSave(){
       completeBtn.onclick=null;
       completeBtn.onclick=()=>{
         completeDialog.style.display="none";
-        // 最新画像表示
         savedImages.innerHTML="";
-        const img=document.createElement("img"); 
-        img.src=sendData; 
-        savedImages.appendChild(img);
-        // 解析結果表示
+        const img=document.createElement("img"); img.src=sendData; savedImages.appendChild(img);
         analysisResult.innerHTML=`
           平均RGB: ${data.pink_avg.avg_rgb}<br>
           HEX: ${data.pink_avg.hex}<br>
