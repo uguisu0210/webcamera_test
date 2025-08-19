@@ -219,7 +219,7 @@ function confirmSave(){
         const img=document.createElement("img");
         img.src=sendData;
         savedImages.appendChild(img);
-        analysisResult.innerHTML=`平均RGB: ${data.pink_avg.avg_rgb}<br>HEX: ${data.pink_avg.hex}<br>濃淡スコア: ${data.pink_avg.shade_score} (${data.pink_avg.shade_level})<br>平均S: ${data.pink_avg.avg_S.toFixed(1)}, 平均V: ${data.pink_avg.avg_V.toFixed(1)}`;
+        analysisResult.innerHTML=`濃淡スコア: ${data.pink_avg.shade_score} (${data.pink_avg.shade_level})`;
         currentImageData=null;
       };
     } else throw new Error(data.message||"サーバーエラー");
@@ -232,4 +232,5 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCente
 
 </body>
 </html>
+
 
