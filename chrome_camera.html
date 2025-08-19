@@ -188,6 +188,10 @@ function confirmSave(){
   cropCanvas.height = circleR*2;
   const ctx2 = cropCanvas.getContext("2d");
 
+  // 背景白で塗りつぶす
+  ctx2.fillStyle = "white";
+  ctx2.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
   // 円形クリップ
   ctx2.beginPath();
   ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
@@ -198,10 +202,16 @@ function confirmSave(){
   const scaleX = originalImage.width / previewCanvas.width;
   const scaleY = originalImage.height / previewCanvas.height;
 
-  const sx = -imgX * scaleX;
-  const sy = -imgY * scaleY;
-  const sw = previewCanvas.width * scale * scaleX;
-  const sh = previewCanvas.height * scale * scaleY;
+  let sx = -imgX * scaleX;
+  let sy = -imgY * scaleY;
+  let sw = previewCanvas.width * scale * scaleX;
+  let sh = previewCanvas.height * scale * scaleY;
+
+  // 元画像の範囲内に制限
+  if(sx < 0){ sw += sx; sx = 0; }
+  if(sy < 0){ sh += sy; sy = 0; }
+  if(sx + sw > originalImage.width){ sw = originalImage.width - sx; }
+  if(sy + sh > originalImage.height){ sh = originalImage.height - sy; }
 
   ctx2.drawImage(originalImage, sx, sy, sw, sh, 0, 0, circleR*2, circleR*2);
 
@@ -231,6 +241,8 @@ function confirmSave(){
     } else throw new Error(data.message||"サーバーエラー");
   }).catch(err=>{console.error(err); alert("送信失敗: "+err.message);});
 }
+
 </script>
 </body>
 </html>
+
