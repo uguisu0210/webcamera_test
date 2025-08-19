@@ -216,33 +216,51 @@ function closePreview(){ previewDialog.style.display="none"; currentImageData=nu
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
 
-  const cropCanvas=document.createElement("canvas");
-  cropCanvas.width=circleR*2;
-  cropCanvas.height=circleR*2;
-  const ctx2=cropCanvas.getContext("2d");
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = circleR*2;
+  cropCanvas.height = circleR*2;
+  const ctx2 = cropCanvas.getContext("2d");
   ctx2.clearRect(0,0,circleR*2,circleR*2);
 
-  // 円内クリップ
+  // 円クリップ
+  ctx2.save();
   ctx2.beginPath();
-  ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
+  ctx2.arc(circleR, circleR, circleR, 0, Math.PI*2);
   ctx2.closePath();
   ctx2.clip();
 
-  ctx2.drawImage(originalImage,
-    (-imgX + circleX - circleR)/scale,
-    (-imgY + circleY - circleR)/scale,
-    previewCanvas.width/scale,
-    previewCanvas.height/scale,
-    0,0,circleR*2,circleR*2
+  // 元画像サイズ
+  const iw = originalImage.width;
+  const ih = originalImage.height;
+
+  // プレビューサイズ
+  const pw = previewCanvas.width;
+  const ph = previewCanvas.height;
+
+  // 円中心のプレビュー座標 → 元画像座標
+  const centerX = (circleX - imgX) / scale;
+  const centerY = (circleY - imgY) / scale;
+
+  // 切り取りサイズ（元画像単位）
+  const cropSize = (circleR*2) / scale;
+
+  // drawImage
+  ctx2.drawImage(
+    originalImage,
+    centerX - cropSize/2, centerY - cropSize/2,  // 元画像左上
+    cropSize, cropSize,                           // 元画像幅・高さ
+    0, 0, circleR*2, circleR*2                   // キャンバスに描画
   );
 
-  const sendData=cropCanvas.toDataURL("image/png");
-  const deviceId=getDeviceId();
+  ctx2.restore();
 
-  fetch("https://2cadc5a37ebd.ngrok-free.app/upload",{
+  const sendData = cropCanvas.toDataURL("image/png"); // PNGで保存
+
+  const deviceId = getDeviceId();
+  fetch("https://866797d83d83.ngrok-free.app/upload", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({image:sendData, device_id:deviceId})
+    body: JSON.stringify({image:sendData, device_id:deviceId})
   })
   .then(async res=>{
     if(!res.ok){ const errData=await res.json().catch(()=>({})); throw new Error(`HTTP ${res.status}: ${errData.message||"不明なエラー"}`);}
@@ -264,9 +282,9 @@ function confirmSave(){
           濃淡スコア: ${data.pink_avg.shade_score} ( ${data.pink_avg.shade_level} )<br>
           平均S: ${data.pink_avg.avg_S.toFixed(1)}, 平均V: ${data.pink_avg.avg_V.toFixed(1)}
         `;
-        currentImageData=null;
+        currentImageData = null;
       };
-    }else throw new Error(data.message||"サーバーエラー");
+    } else throw new Error(data.message || "サーバーエラー");
   })
   .catch(err=>{ console.error(err); alert("送信失敗: "+err.message); });
 }
@@ -275,3 +293,4 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCente
 </script>
 </body>
 </html>
+
