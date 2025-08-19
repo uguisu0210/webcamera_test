@@ -163,29 +163,31 @@ function getDeviceId() {
 }
 
 // --- 保存・サーバー送信 ---
-function confirmSave() {
+function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
 
   const cropCanvas = document.createElement("canvas");
   cropCanvas.width = circleR*2;
   cropCanvas.height = circleR*2;
   const ctx2 = cropCanvas.getContext("2d");
-  ctx2.clearRect(0,0,cropCanvas.width,cropCanvas.height);
 
+  // 円形クリップ
   ctx2.beginPath();
   ctx2.arc(circleR,circleR,circleR,0,Math.PI*2);
   ctx2.closePath();
   ctx2.clip();
 
+  // 元画像座標を正確に変換
   const scaleX = originalImage.width / previewCanvas.width;
   const scaleY = originalImage.height / previewCanvas.height;
 
-  const sx = (circleX - circleR - imgX) * scaleX;
-  const sy = (circleY - circleR - imgY) * scaleY;
-  const sw = (circleR*2) * scaleX;
-  const sh = (circleR*2) * scaleY;
+  // プレビュー上の移動・拡大を元画像に変換
+  const sx = (0 - imgX) * scaleX;
+  const sy = (0 - imgY) * scaleY;
+  const sw = previewCanvas.width * scaleX * scale;
+  const sh = previewCanvas.height * scaleY * scale;
 
-  ctx2.drawImage(originalImage,sx,sy,sw,sh,0,0,circleR*2,circleR*2);
+  ctx2.drawImage(originalImage, sx, sy, sw, sh, 0, 0, circleR*2, circleR*2);
 
   const sendData = cropCanvas.toDataURL("image/png");
   const deviceId = getDeviceId();
@@ -200,27 +202,23 @@ function confirmSave() {
   }).then(data=>{
     if(data.status==="ok"){
       previewDialog.style.display="none";
-
-      // 保存完了ダイアログ
-      const completeDialog = document.getElementById("complete-dialog");
+      const completeDialog=document.getElementById("complete-dialog");
       completeDialog.style.display="flex";
-      document.getElementById("complete-btn").onclick = () => {
-        completeDialog.style.display = "none";
-
-        // 保存画像を表示
-        const img = document.createElement("img");
-        img.src = sendData;           // Base64画像を直接セット
-        img.alt = "保存画像";
-        img.style.margin = "5px";
+      document.getElementById("complete-btn").onclick=()=>{
+        completeDialog.style.display="none";
+        const img=document.createElement("img");
+        img.src=sendData;
+        savedImages.innerHTML="";
         savedImages.appendChild(img);
-
-        currentImageData = null;
+        currentImageData=null;
       };
     } else throw new Error(data.message||"サーバーエラー");
   }).catch(err=>{console.error(err); alert("送信失敗: "+err.message);});
 }
 
+
 </script>
 </body>
 </html>
+
 
