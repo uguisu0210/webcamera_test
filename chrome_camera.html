@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>固定円トリミング＋円内切り取り＋ズーム＋ピンク解析</title>
+<title>スマホ専用カメラ＋円トリミング＋送信</title>
 <style>
 body { text-align: center; margin: 0; background: #fff; font-family: sans-serif; }
 #camera-container { position: relative; display: inline-block; width: 100vw; max-width: 100%; aspect-ratio: 16/9; background: black; }
@@ -34,8 +34,9 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
   <div id="no-signal">No signal</div>
 </div><br>
 
+<!-- スマホ判定で表示 -->
 <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
-<button onclick="captureImage()">カメラ画像取得</button>
+<button id="capture-btn" onclick="captureImage()">カメラ画像取得</button>
 <br>
 <input type="file" id="upload-input" accept="image/*">
 
@@ -48,7 +49,7 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
       <button class="preview-btn save-btn" onclick="confirmSave()">円内を保存</button>
       <button class="preview-btn cancel-btn" onclick="closePreview()">キャンセル</button>
     </div>
-    <p>赤い円内が切り取られる範囲です。ドラッグで位置調整、ホイール/ピンチでズーム可能。</p>
+    <p>赤い円内が切り取られる範囲です。ドラッグで位置調整、ピンチでズーム可能。</p>
   </div>
 </div>
 
@@ -65,12 +66,22 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 <div id="analysis-result"></div>
 
 <script>
+const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+if(!isMobile){
+  document.getElementById("control-btn").style.display="none";
+  document.getElementById("capture-btn").style.display="none";
+  document.getElementById("upload-input").style.display="none";
+  document.getElementById("af-status").textContent="スマホのみ使用可能です";
+}
+
+// --- 要素 ---
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const ctx = overlay.getContext('2d');
 const noSignal = document.getElementById('no-signal');
 const afStatus = document.getElementById('af-status');
 const controlBtn = document.getElementById('control-btn');
+const captureBtn = document.getElementById('capture-btn');
 
 const previewDialog = document.getElementById('preview-dialog');
 const previewCanvas = document.getElementById('preview-canvas');
@@ -97,8 +108,9 @@ function resizeOverlay(){ overlay.width=overlay.offsetWidth; overlay.height=over
 function drawCenterCircle(){ ctx.clearRect(0,0,overlay.width,overlay.height); const cx=overlay.width/2, cy=overlay.height/2, r=Math.min(overlay.width,overlay.height)/4; ctx.beginPath(); ctx.arc(cx, cy, r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle="black"; ctx.stroke(); }
 
 async function startCamera(){
+  if(!isMobile) return;
   try{
-    const constraints={video:{width:{ideal:1280},height:{ideal:720}},audio:false};
+    const constraints={video:{facingMode:{ideal:"environment"}},audio:false};
     const stream=await navigator.mediaDevices.getUserMedia(constraints);
     savedStream=stream; video.srcObject=stream; video.play(); isPaused=false; isStarted=true;
     noSignal.style.display="none"; controlBtn.textContent="静止";
@@ -163,6 +175,19 @@ function zoomAtCenter(delta){
   clampPosition(); drawPreview();
 }
 previewCanvas.onwheel=e=>{ e.preventDefault(); zoomAtCenter(e.deltaY<0?1.1:0.9); };
+previewCanvas.ontouchstart=e=>{
+  if(e.touches.length===1){ isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY; }
+  else if(e.touches.length===2){ lastDist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY); isDragging=false; }
+};
+previewCanvas.ontouchmove=e=>{
+  e.preventDefault();
+  if(e.touches.length===1 && isDragging){ imgX+=e.touches[0].clientX-startX; imgY+=e.touches[0].clientY-startY; startX=e.touches[0].clientX; startY=e.touches[0].clientY; drawPreview(); }
+  else if(e.touches.length===2){
+    const dist=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);
+    zoomAtCenter(dist/lastDist); lastDist=dist;
+  }
+};
+previewCanvas.ontouchend=e=>{ if(e.touches.length<2) lastDist=0; if(e.touches.length===0) isDragging=false; };
 
 // --- 閉じる ---
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
