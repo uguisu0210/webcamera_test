@@ -98,7 +98,6 @@ function getDeviceId() {
 
 // --- カメラ操作 ---
 function resizeOverlay() { overlay.width=overlay.offsetWidth; overlay.height=overlay.offsetHeight; }
-function drawCenterCircle(){ ctx.clearRect(0,0,overlay.width,overlay.height); const cx=overlay.width/2,cy=overlay.height/2,r=Math.min(overlay.width,overlay.height)/4; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle="black"; ctx.stroke(); }
 
 function pauseCamera(){
   if(video.srcObject && !isPaused){
@@ -133,7 +132,6 @@ async function startCamera(){
     noSignal.style.display = "none";
     controlBtn.textContent = "静止"; // カメラ開始後は「静止」
     resizeOverlay();
-    drawCenterCircle();
   } catch(err){
     noSignal.style.display="flex";
     video.srcObject = null;
@@ -185,7 +183,11 @@ function drawPreview(){
   previewCtx.beginPath(); previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2); previewCtx.closePath(); previewCtx.clip();
   previewCtx.drawImage(originalImage,imgX,imgY,previewCanvas.width*scale,previewCanvas.height*scale);
   previewCtx.restore();
-  previewCtx.strokeStyle="red"; previewCtx.lineWidth=2; previewCtx.beginPath(); previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2); previewCtx.stroke();
+  previewCtx.strokeStyle="red";
+  previewCtx.lineWidth=2;
+  previewCtx.beginPath();
+  previewCtx.arc(circleX,circleY,circleR,0,Math.PI*2);
+  previewCtx.stroke();
 }
 
 // --- 制限 ---
@@ -265,9 +267,8 @@ function confirmSave(){
   }).catch(err=>{ console.error(err); alert("送信失敗: "+err.message); });
 }
 
-window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCenterCircle(); } });
+window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); } });
 </script>
 
 </body>
 </html>
-
