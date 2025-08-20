@@ -221,16 +221,11 @@ function confirmSave(){
   cropCanvas.height = previewCanvas.height;
   const ctx2 = cropCanvas.getContext("2d");
 
-  // 透明背景
   ctx2.clearRect(0,0,cropCanvas.width,cropCanvas.height);
-
-  // 円マスク
   ctx2.beginPath();
   ctx2.arc(circleX, circleY, circleR, 0, Math.PI*2);
   ctx2.closePath();
   ctx2.clip();
-
-  // プレビューと同じ位置・スケールで描画
   ctx2.drawImage(originalImage, imgX, imgY, previewCanvas.width*scale, previewCanvas.height*scale);
 
   const sendData = cropCanvas.toDataURL("image/png");
@@ -255,9 +250,14 @@ function confirmSave(){
       completeDialog.style.display="flex";
       document.getElementById("complete-btn").onclick=()=>{
         completeDialog.style.display="none";
+
+        // 最新画像のみ表示
+        savedImages.innerHTML = "";
+
         const img=document.createElement("img");
         img.src=sendData;
         savedImages.appendChild(img);
+
         const score = data.pink_avg.shade_score;
         const message = score <= 60 ? "少ない" : "OK";
         analysisResult.innerHTML = `濃淡スコア: ${score} → ${message}`;
@@ -272,4 +272,3 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); } });
 
 </body>
 </html>
-
