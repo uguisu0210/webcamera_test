@@ -13,50 +13,25 @@ video { object-fit: cover; }
 #no-signal { display: none; align-items: center; justify-content: center; background: rgba(255,255,255,0.7); color: black; font-size: 1.2em; }
 button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px; border: none; cursor: pointer; }
 #af-status { margin-top: 8px; font-size: 0.9em; color: #555; }
-#preview-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; background: rgba(0,0,0,0.5);}
-#preview-box { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; margin: auto; }
+#preview-dialog, #complete-dialog { display: none; position: fixed; top:0; left:0; width:100%; height:100%; align-items: center; justify-content: center; z-index: 9999; background: rgba(0,0,0,0.5);}
+#preview-box, #complete-dialog > div { background: #fff; padding: 15px; border-radius: 10px; text-align: center; max-width: 90%; position: relative; }
 #preview-canvas { border:1px solid #ccc; background:#eee; width:300px; height:300px; touch-action: none; cursor: grab; }
-
+.preview-btn { margin: 5px; padding: 6px 12px; font-size: 1em; border: none; border-radius: 5px; cursor: pointer; }
 .save-btn { background: #4CAF50; color: white; }
 .cancel-btn { background: #f44336; color: white; }
-
-#complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
-
-/* 最新画像を画面下部に表示 */
-#saved-images {
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
+#preview-buttons { 
+  position: absolute; 
+  bottom: 20px;          /* 下部からのマージン */
+  left: 50%;             /* 横中央 */
   transform: translateX(-50%);
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
   gap: 10px;
-  background: rgba(255,255,255,0.8);
-  padding: 5px 10px;
-  border-radius: 8px;
-  max-width: 95%;
-  overflow-x: auto;
 }
-#saved-images img {
-  max-width: 120px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
+#complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
+#saved-images { margin-top: 15px; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+#saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
 #analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
 #upload-input { margin-top:10px; }
-
-/* プレビューの保存・キャンセルボタンを下部固定 */
-#preview-buttons {
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
-  z-index: 10000;
-}
 </style>
 </head>
 <body>
@@ -76,10 +51,10 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 <div id="preview-dialog">
   <div id="preview-box">
     <canvas id="preview-canvas" width="300" height="300"></canvas>
-  </div>
-  <div id="preview-buttons">
-    <button class="save-btn" onclick="confirmSave()">保存する</button>
-    <button class="cancel-btn" onclick="closePreview()">キャンセル</button>
+    <div id="preview-buttons">
+      <button class="preview-btn save-btn" onclick="confirmSave()">保存する</button>
+      <button class="preview-btn cancel-btn" onclick="closePreview()">キャンセル</button>
+    </div>
   </div>
 </div>
 
@@ -90,11 +65,11 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
   </div>
 </div>
 
+<h3>最新画像</h3>
+<div id="saved-images"></div>
+
 <h3>解析結果</h3>
 <div id="analysis-result"></div>
-
-<!-- 最新画像を画面下部に表示 -->
-<div id="saved-images"></div>
 
 <script>
 const video = document.getElementById('video');
@@ -160,7 +135,7 @@ async function startCamera(){
     isPaused = false;
     isStarted = true;
     noSignal.style.display = "none";
-    controlBtn.textContent = "静止";
+    controlBtn.textContent = "静止"; 
     resizeOverlay();
   } catch(err){
     noSignal.style.display="flex";
@@ -242,10 +217,12 @@ function confirmSave(){
   const ctx2 = cropCanvas.getContext("2d");
 
   ctx2.clearRect(0,0,cropCanvas.width,cropCanvas.height);
+
   ctx2.beginPath();
   ctx2.arc(circleX, circleY, circleR, 0, Math.PI*2);
   ctx2.closePath();
   ctx2.clip();
+
   ctx2.drawImage(originalImage, imgX, imgY, previewCanvas.width*scale, previewCanvas.height*scale);
 
   const sendData = cropCanvas.toDataURL("image/png");
@@ -270,13 +247,10 @@ function confirmSave(){
       completeDialog.style.display="flex";
       document.getElementById("complete-btn").onclick=()=>{
         completeDialog.style.display="none";
-
-        // 最新画像はそのまま残す
+        savedImages.innerHTML=""; // 最新画像だけ表示
         const img=document.createElement("img");
         img.src=sendData;
-        savedImages.innerHTML = ""; // 最新画像のみ表示
         savedImages.appendChild(img);
-
         const score = data.pink_avg.shade_score;
         const message = score <= 60 ? "少ない" : "OK";
         analysisResult.innerHTML = `濃淡スコア: ${score} → ${message}`;
