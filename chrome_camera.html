@@ -20,7 +20,7 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 .save-btn { background: #4CAF50; color: white; }
 .cancel-btn { background: #f44336; color: white; }
 #complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
-#saved-images { margin-top: 15px; display: flex; justify-content: center; }
+#saved-images { margin-top: 15px; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
 #saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
 #analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
 #upload-input { margin-top:10px; }
@@ -35,7 +35,7 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 </div>
 <br>
 <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
-<button onclick="captureImage()">カメラ画像取得</button>
+<button onclick="captureImage()">画像保存</button>
 <br>
 <input type="file" id="upload-input" accept="image/*">
 
@@ -98,22 +98,60 @@ function getDeviceId() {
 // --- カメラ操作 ---
 function resizeOverlay() { overlay.width=overlay.offsetWidth; overlay.height=overlay.offsetHeight; }
 function drawCenterCircle(){ ctx.clearRect(0,0,overlay.width,overlay.height); const cx=overlay.width/2,cy=overlay.height/2,r=Math.min(overlay.width,overlay.height)/4; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle="black"; ctx.stroke(); }
-function pauseCamera(){ if(video.srcObject&&!isPaused){ video.pause(); isPaused=true; afStatus.textContent="AF状態: 一時停止中"; controlBtn.textContent="再開"; } }
-function resumeCamera(){ if(savedStream&&isPaused){ video.play(); isPaused=false; afStatus.textContent="AF状態: 再開中"; controlBtn.textContent="静止"; } }
-async function startCamera(){
-  try{
-    if(location.protocol!=='https:'&&location.hostname!=='localhost'){ alert('カメラはHTTPS接続またはlocalhostでのみ使用可能'); return; }
-    const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const constraints={video:isMobile?{facingMode:{ideal:"environment"}}:{width:{ideal:1280},height:{ideal:720}},audio:false};
-    const stream=await navigator.mediaDevices.getUserMedia(constraints);
-    savedStream=stream;
-    video.srcObject=stream;
-    video.play();
-    isPaused=false; isStarted=true; noSignal.style.display="none"; controlBtn.textContent="静止";
-    resizeOverlay(); drawCenterCircle();
-  }catch(err){ noSignal.style.display="flex"; video.srcObject=null; afStatus.textContent="AF状態: 起動失敗"; alert('カメラ起動失敗: '+err.message);}
+
+function pauseCamera(){
+  if(video.srcObject && !isPaused){
+    video.pause();
+    isPaused = true;
+    afStatus.textContent="AF状態: 一時停止中";
+  }
 }
-function toggleCamera(){ if(!isStarted) startCamera(); else if(!isPaused) pauseCamera(); else resumeCamera(); }
+
+function resumeCamera(){
+  if(savedStream && isPaused){
+    video.play();
+    isPaused = false;
+    afStatus.textContent="AF状態: 再開中";
+  }
+}
+
+async function startCamera(){
+  try {
+    if(location.protocol!=='https:' && location.hostname!=='localhost'){
+      alert('カメラはHTTPS接続またはlocalhostでのみ使用可能'); 
+      return;
+    }
+    const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const constraints = { video: isMobile?{facingMode:{ideal:"environment"}}:{width:{ideal:1280},height:{ideal:720}}, audio:false };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    savedStream = stream;
+    video.srcObject = stream;
+    video.play();
+    isPaused = false;
+    isStarted = true;
+    noSignal.style.display = "none";
+    controlBtn.textContent = "静止"; // カメラ開始後は「静止」
+    resizeOverlay();
+    drawCenterCircle();
+  } catch(err){
+    noSignal.style.display="flex";
+    video.srcObject = null;
+    afStatus.textContent="AF状態: 起動失敗";
+    alert('カメラ起動失敗: '+err.message);
+  }
+}
+
+function toggleCamera(){
+  if(!isStarted){
+    startCamera();           // 初回：カメラ開始
+  } else if(!isPaused){
+    pauseCamera();           // 動作中：静止
+    controlBtn.textContent = "再開";
+  } else {
+    resumeCamera();          // 停止中：再開
+    controlBtn.textContent = "静止";
+  }
+}
 
 // --- 画像取得 ---
 function captureImage(){
@@ -214,7 +252,6 @@ function confirmSave(){
       completeDialog.style.display="flex";
       document.getElementById("complete-btn").onclick=()=>{
         completeDialog.style.display="none";
-        savedImages.innerHTML="";
         const img=document.createElement("img");
         img.src=sendData;
         savedImages.appendChild(img);
@@ -227,14 +264,8 @@ function confirmSave(){
   }).catch(err=>{ console.error(err); alert("送信失敗: "+err.message); });
 }
 
-
 window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); drawCenterCircle(); } });
 </script>
 
 </body>
 </html>
-
-
-
-
-
