@@ -20,8 +20,29 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 .save-btn { background: #4CAF50; color: white; }
 .cancel-btn { background: #f44336; color: white; }
 #complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
-#saved-images { margin-top: 15px; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
-#saved-images img { max-width: 120px; border: 1px solid #ccc; border-radius: 4px; } /* ← サイズを一回り小さく */
+
+/* 最新画像を画面下部に固定表示 */
+#saved-images {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: rgba(255,255,255,0.8);
+  padding: 5px 10px;
+  border-radius: 8px;
+  max-width: 95%;
+  overflow-x: auto;
+}
+#saved-images img {
+  max-width: 120px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
 #analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
 #upload-input { margin-top:10px; }
 </style>
@@ -57,11 +78,11 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
   </div>
 </div>
 
-<h3>最新画像</h3>
-<div id="saved-images"></div>
-
 <h3>解析結果</h3>
 <div id="analysis-result"></div>
+
+<!-- 最新画像を画面下部に表示 -->
+<div id="saved-images"></div>
 
 <script>
 const video = document.getElementById('video');
@@ -238,9 +259,8 @@ function confirmSave(){
       document.getElementById("complete-btn").onclick=()=>{
         completeDialog.style.display="none";
 
-        // 最新画像のみ表示
+        // 最新画像のみ表示（画面下部）
         savedImages.innerHTML = "";
-
         const img=document.createElement("img");
         img.src=sendData;
         savedImages.appendChild(img);
