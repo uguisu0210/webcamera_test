@@ -85,8 +85,8 @@ let originalImage = new Image();
 // プレビュー用ドラッグ・ズーム
 let imgX=0, imgY=0, startX=0, startY=0, isDragging=false;
 let scale=1;
-let circleX=previewCanvas.width/2;
-let circleY=previewCanvas.height/2;
+const circleX=previewCanvas.width/2;
+const circleY=previewCanvas.height/2;
 const circleR=Math.min(previewCanvas.width,previewCanvas.height)/2-5;
 
 // --- 端末ID ---
@@ -169,12 +169,8 @@ function loadPreview(dataURL){
   originalImage.src=dataURL;
   originalImage.onload=()=>{
     scale=1; imgX=0; imgY=0;
-    clampScale(); clampPosition();
-    // 横方向を画面中央に
-    circleX = previewCanvas.width / 2;
-    drawPreview();
-    previewDialog.style.display="flex"; 
-    currentImageData=dataURL;
+    clampScale(); clampPosition(); drawPreview();
+    previewDialog.style.display="flex"; currentImageData=dataURL;
   };
 }
 
@@ -271,19 +267,7 @@ function confirmSave(){
   }).catch(err=>{ console.error(err); alert("送信失敗: "+err.message); });
 }
 
-// --- 横方向を中央に固定 ---
-function updateCirclePosition() {
-  circleX = previewCanvas.width / 2;
-  drawPreview();
-}
-
-// --- ウィンドウリサイズ対応 ---
-window.addEventListener("resize",()=>{
-  if(isStarted){ 
-    resizeOverlay(); 
-    updateCirclePosition();
-  }
-});
+window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); } });
 </script>
 
 </body>
