@@ -21,7 +21,7 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 .cancel-btn { background: #f44336; color: white; }
 #complete-btn { padding: 8px 20px; font-size: 1.1em; border: none; border-radius: 5px; background: #4CAF50; color: #fff; cursor: pointer; }
 #saved-images { margin-top: 15px; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
-#saved-images img { max-width: 150px; border: 1px solid #ccc; border-radius: 4px; }
+#saved-images img { max-width: 120px; border: 1px solid #ccc; border-radius: 4px; } /* ← サイズを一回り小さく */
 #analysis-result { margin-top: 10px; font-size: 0.95em; color: #333; }
 #upload-input { margin-top:10px; }
 </style>
@@ -82,21 +82,18 @@ const uploadInput = document.getElementById('upload-input');
 let isPaused=false, isStarted=false, savedStream=null, currentImageData=null;
 let originalImage = new Image();
 
-// プレビュー用ドラッグ・ズーム
 let imgX=0, imgY=0, startX=0, startY=0, isDragging=false;
 let scale=1;
 const circleX=previewCanvas.width/2;
 const circleY=previewCanvas.height/2;
 const circleR=Math.min(previewCanvas.width,previewCanvas.height)/2-5;
 
-// --- 端末ID ---
 function getDeviceId() {
   let id = localStorage.getItem("device_id");
   if(!id){ id = "device_"+Math.random().toString(36).slice(2); localStorage.setItem("device_id", id);}
   return id;
 }
 
-// --- カメラ操作 ---
 function resizeOverlay() { overlay.width=overlay.offsetWidth; overlay.height=overlay.offsetHeight; }
 
 function pauseCamera(){
@@ -130,7 +127,7 @@ async function startCamera(){
     isPaused = false;
     isStarted = true;
     noSignal.style.display = "none";
-    controlBtn.textContent = "静止"; // カメラ開始後は「静止」
+    controlBtn.textContent = "静止";
     resizeOverlay();
   } catch(err){
     noSignal.style.display="flex";
@@ -142,17 +139,16 @@ async function startCamera(){
 
 function toggleCamera(){
   if(!isStarted){
-    startCamera();           // 初回：カメラ開始
+    startCamera();
   } else if(!isPaused){
-    pauseCamera();           // 動作中：静止
+    pauseCamera();
     controlBtn.textContent = "再開";
   } else {
-    resumeCamera();          // 停止中：再開
+    resumeCamera();
     controlBtn.textContent = "静止";
   }
 }
 
-// --- 画像取得 ---
 function captureImage(){
   if(!isStarted){ alert("カメラを開始してください"); return; }
   const tempCanvas=document.createElement("canvas");
@@ -161,10 +157,8 @@ function captureImage(){
   loadPreview(tempCanvas.toDataURL("image/png"));
 }
 
-// --- アップロード ---
 uploadInput.onchange = e => { if(!e.target.files[0]) return; const reader=new FileReader(); reader.onload=ev=>loadPreview(ev.target.result); reader.readAsDataURL(e.target.files[0]); };
 
-// --- プレビュー ---
 function loadPreview(dataURL){
   originalImage.src=dataURL;
   originalImage.onload=()=>{
@@ -174,7 +168,6 @@ function loadPreview(dataURL){
   };
 }
 
-// --- プレビュー描画 ---
 function drawPreview(){
   clampScale(); clampPosition();
   previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
@@ -190,29 +183,23 @@ function drawPreview(){
   previewCtx.stroke();
 }
 
-// --- 制限 ---
 function clampScale(){ const minScale=Math.max((circleR*2)/previewCanvas.width,(circleR*2)/previewCanvas.height); if(scale<minScale) scale=minScale; }
 function clampPosition(){ const left=circleX-circleR; const top=circleY-circleR; const right=circleX+circleR; const bottom=circleY+circleR; const scaledW=previewCanvas.width*scale; const scaledH=previewCanvas.height*scale; if(imgX>left) imgX=left; if(imgY>top) imgY=top; if(imgX+scaledW<right) imgX=right-scaledW; if(imgY+scaledH<bottom) imgY=bottom-scaledH; }
 
-// --- ドラッグ ---
 previewCanvas.onmousedown=e=>{ isDragging=true; startX=e.clientX; startY=e.clientY; };
 previewCanvas.onmousemove=e=>{ if(!isDragging) return; imgX+=e.clientX-startX; imgY+=e.clientY-startY; startX=e.clientX; startY=e.clientY; drawPreview(); };
 previewCanvas.onmouseup=previewCanvas.onmouseleave=e=>{ isDragging=false; };
 
-// --- ズーム ---
 function zoomAtCenter(delta){ const prevScale=scale; scale*=delta; clampScale(); imgX=circleX-(circleX-imgX)*(scale/prevScale); imgY=circleY-(circleY-imgY)*(scale/prevScale); clampPosition(); drawPreview(); }
 previewCanvas.onwheel=e=>{ e.preventDefault(); zoomAtCenter(e.deltaY<0?1.1:0.9); };
 
-// --- タッチ ---
 let lastDist=0;
 previewCanvas.ontouchstart=e=>{ if(e.touches.length===1){ isDragging=true; startX=e.touches[0].clientX; startY=e.touches[0].clientY; } else if(e.touches.length===2){ isDragging=false; lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); } };
 previewCanvas.ontouchmove=e=>{ e.preventDefault(); if(e.touches.length===1 && isDragging){ imgX+=e.touches[0].clientX-startX; imgY+=e.touches[0].clientY-startY; startX=e.touches[0].clientX; startY=e.touches[0].clientY; drawPreview(); } else if(e.touches.length===2){ let dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); zoomAtCenter(dist/lastDist); lastDist=dist; } };
 previewCanvas.ontouchend=e=>{ if(e.touches.length<2) lastDist=0; if(e.touches.length===0) isDragging=false; };
 
-// --- 閉じる ---
 function closePreview(){ previewDialog.style.display="none"; currentImageData=null; }
 
-// --- 保存・サーバー送信 ---
 function confirmSave(){
   if(!currentImageData){ alert("保存画像がありません"); return; }
 
