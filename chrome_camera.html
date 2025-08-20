@@ -37,6 +37,7 @@ button { margin-top: 10px; padding: 6px 12px; font-size: 1em; border-radius: 5px
 <button id="control-btn" onclick="toggleCamera()">カメラ開始</button>
 <button onclick="captureImage()">画像保存</button>
 <br>
+<p>写真をアップロードはこちら</p>
 <input type="file" id="upload-input" accept="image/*">
 
 <div id="preview-dialog">
@@ -86,7 +87,7 @@ let imgX=0, imgY=0, startX=0, startY=0, isDragging=false;
 let scale=1;
 const circleX=previewCanvas.width/2;
 const circleY=previewCanvas.height/2;
-const circleR=Math.min(previewCanvas.width, previewCanvas.height)/2-5;
+const circleR=Math.min(previewCanvas.width,previewCanvas.height)/2-5;
 
 // --- 端末ID ---
 function getDeviceId() {
