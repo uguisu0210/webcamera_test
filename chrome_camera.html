@@ -218,7 +218,7 @@ function confirmSave(){
   const sendData = cropCanvas.toDataURL("image/png");
   const deviceId = getDeviceId();
 
-  fetch("https://e23e5af7a3d9.ngrok-free.app/upload",{
+  fetch("https://3c0f4ef48cf2.ngrok-free.app/upload",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({image:sendData, device_id:deviceId})
@@ -259,3 +259,4 @@ window.addEventListener("resize",()=>{ if(isStarted){ resizeOverlay(); } });
 
 </body>
 </html>
+
